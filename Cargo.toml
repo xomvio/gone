@@ -1,0 +1,10 @@
+[package]
+name = "sdHTTPp"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4.5.40", features = ["derive"] }
+tiny_http = "0.12"
+rand = "0.9.1"
+#random = "0.14.0"
