@@ -4,35 +4,38 @@
 
 # Port to listen on
 # Default is random between 1024 and 65535
+# If port is taken, it would crash :(
 #port = "8080"
 
 # Content type for http response
 # You can use any valid MIME type
 # Default is text/html
-content_type = "text/html"
+#content_type = "text/html"
 
 # Server name to show in http response headers
 # Default is nginx to mislead attackers
-server_name = "nginx"
+#server_name = "nginx"
 
 # Maximum number of visits per IP
 # If max_visits is exceeded, IP is blocked
 # Default is 3
-max_visits = 3
+#max_visits = 3
 
 # List of allowed HTTP methods
 # If visit is made with a method not in this list, visitor is blocked
 # Default is only GET
-allowed_methods = ["GET"]
+#allowed_methods = ["GET"]
 
 # You should use one of the from_file or text options to serve content
 # Path to file to serve when correct endpoint is requested
+# This will override text message
 # Default is none
-#from_file = "test.html"
+#from_file = "secret.html"
 
 # Text to serve when correct endpoint is requested
+# If you use text, it would be better to use text/plain content type
 # Default is none
-#text = "Hello World"
+text = "Secret Message"
 
 # Correct endpoint to serve our content
 # Default is randomized 64 character string

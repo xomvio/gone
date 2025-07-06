@@ -4,6 +4,7 @@ use clap::Parser;
 use rand::{self, distr::{Distribution, Uniform}, Rng};
 use chrono;
 use serde::Deserialize;
+use toml;
 
 #[derive(Parser)]
 struct Args {
@@ -29,16 +30,43 @@ struct Args {
     output: Option<String>
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 struct Config {
     port: Option<String>,
     content_type: Option<String>,
     server_name: Option<String>,
+    max_visits: Option<u32>,
+    allowed_methods: Option<Vec<String>>,
     from_file: Option<String>,
     text: Option<String>,
     endpoint: Option<String>,
     output: Option<String>,
-    blacklist: Option<Vec<String>>
+    blacklist: Option<Vec<String>>,
+    whitelist: Option<Vec<String>>,
+}
+
+
+fn get_config() -> Config {
+    let args = Args::parse();
+
+    let mut config: Config = toml::from_str(include_str!("../config.toml")).unwrap();
+
+    if args.port.is_some() {
+        config.port = args.port;
+    }
+    if args.from_file.is_some() {
+        config.from_file = args.from_file;
+    }
+    if args.text.is_some() {
+        config.text = args.text;
+    }
+    if args.endpoint.is_some() {
+        config.endpoint = args.endpoint;
+    }
+    if args.output.is_some() {
+        config.output = args.output;
+    }
+    config
 }
 
 fn random_port() -> String {
@@ -73,7 +101,7 @@ struct Visitor {
 }
 
 impl Visitor {
-    fn check(&mut self) -> bool {
+    fn check(&mut self, config: &Config) -> bool {
         if self.blocked {
             return true;
         }
@@ -86,7 +114,10 @@ impl Visitor {
         let last_visit = self.visits.last().unwrap();
         if last_visit.method == "POST" {
             blocked = true;
-        }        
+        }
+
+        //check if whitelist is not empty
+        
         
         self.blocked = blocked;
         blocked
@@ -94,9 +125,11 @@ impl Visitor {
 }
 
 fn main() {
-    let args = Args::parse();
+    //let args = Args::parse();
 
-    if args.from_file.is_none() && args.text.is_none() {        
+    let config = get_config();
+
+    if config.from_file.is_none() && config.text.is_none() {        
         println!("You must specify either --from-file or --text\r\ntype \"sdhttpp --help\" for more info");
         return;
     }
@@ -104,14 +137,14 @@ fn main() {
     // one use flag
     let used = Arc::new(AtomicBool::new(false));
     
-    let port = match args.port {
+    let port = match &config.port {
         Some(port) => port,
-        None => random_port()
+        None => &random_port()
     };
     
-    let endpoint = match args.endpoint {
+    let endpoint = match &config.endpoint {
         Some(endpoint) => endpoint,
-        None => random_endpoint()
+        None => &random_endpoint()
     };
 
     // tiny_http server
@@ -129,7 +162,7 @@ fn main() {
     println!("Server started \r\nport: {} \r\nendpoint: {}\r\n",port, endpoint);
 
 
-    // Reject Response = Response::new(tiny_http::StatusCode(404), vec![Header::from_str(format!("Server: {}",args.server_name).as_str()).unwrap()], "".as_bytes(), None, None);
+    // Reject Response = Response::new(tiny_http::StatusCode(404), vec![Header::from_str(format!("Server: {}",config.server_name).as_str()).unwrap()], "".as_bytes(), None, None);
     for request in server.incoming_requests() {
 
         match visitors.get_mut(&request.remote_addr().unwrap().to_string()) {
@@ -157,7 +190,7 @@ fn main() {
             }
         }
 
-        let blocked =visitors.get_mut(&request.remote_addr().unwrap().to_string()).unwrap().check();
+        let blocked = visitors.get_mut(&request.remote_addr().unwrap().to_string()).unwrap().check(&config);
 
         println!(r#"{color_green}Request{color_reset}
 {color_yellow}DateTime:{color_reset}{}
@@ -173,18 +206,9 @@ request.method().as_str(),
 request.http_version(),
 if blocked {"blocked\r\n"} else {""});
 
-
-        //visitors.get_mut(&request.remote_addr().unwrap().to_string()).unwrap().check();
-
         // if visitor blocked, respond with 404
-        if blocked {
-            let resp = Response::new(tiny_http::StatusCode(404), vec![Header::from_str(format!("Server: {}",args.server_name).as_str()).unwrap()], "".as_bytes(), None, None);
-            request.respond(resp).unwrap();
-            continue;
-        }
-
-        if request.url() != ("/".to_string() + &endpoint) {
-            let resp = Response::new(tiny_http::StatusCode(404), vec![Header::from_str(format!("Server: {}",args.server_name).as_str()).unwrap()], "".as_bytes(), None, None);
+        if blocked || request.url() != ("/".to_string() + &endpoint) {
+            let resp = Response::new(tiny_http::StatusCode(404), vec![Header::from_str(format!("Server: {}",config.server_name.to_owned().unwrap_or("nginx".to_string())).as_str()).unwrap()], "".as_bytes(), None, None);
             request.respond(resp).unwrap();
             continue;
         }
@@ -194,16 +218,16 @@ if blocked {"blocked\r\n"} else {""});
 
             println!("seen!");
 
-            let msg = match args.from_file {
+            let msg = match config.from_file {
                 Some(file_path) => std::fs::read_to_string(file_path).unwrap(),
-                None => match args.text {
+                None => match config.text {
                     Some(msg) => msg,
                     None => "nothing".to_string()
                 }
             };
             
-            let content_type = Header::from_str(format!("Content-Type: {}",args.content_type).as_str()).unwrap();
-            let server_hdr = Header::from_str(format!("Server: {}", args.server_name).as_str()).unwrap();
+            let content_type = Header::from_str(format!("Content-Type: {}",config.content_type.unwrap_or("text/html".to_string())).as_str()).unwrap();
+            let server_hdr = Header::from_str(format!("Server: {}", config.server_name.unwrap_or("nginx".to_string())).as_str()).unwrap();
             let resp = Response::new(tiny_http::StatusCode(200), vec![content_type,server_hdr], msg.as_bytes(), Some(msg.len()), None);
             request.respond(resp).unwrap();
             
