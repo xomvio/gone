@@ -1,8 +1,9 @@
-use std::{str::FromStr, sync::{atomic::{AtomicBool, Ordering}, Arc}};
+use std::{collections::HashMap, str::FromStr, sync::{atomic::{AtomicBool, Ordering}, Arc}};
 use tiny_http::{Header, Response, Server};
 use clap::Parser;
 use rand::{self, distr::{Distribution, Uniform}, Rng};
 use chrono;
+use serde::Deserialize;
 
 #[derive(Parser)]
 struct Args {
@@ -26,7 +27,18 @@ struct Args {
 
     #[arg(short,long)]
     output: Option<String>
+}
 
+#[derive(Deserialize)]
+struct Config {
+    port: Option<String>,
+    content_type: Option<String>,
+    server_name: Option<String>,
+    from_file: Option<String>,
+    text: Option<String>,
+    endpoint: Option<String>,
+    output: Option<String>,
+    blacklist: Option<Vec<String>>
 }
 
 fn random_port() -> String {
@@ -47,7 +59,41 @@ fn random_endpoint() -> String {
     String::from_utf8_lossy(&bytevec).to_string()
 }
 
-fn main() {    
+struct Visit {
+    datetime: String,
+    ip: String,
+    endpoint: String,
+    method: String,
+    version: String,
+}
+
+struct Visitor {
+    visits: Vec<Visit>,
+    blocked: bool
+}
+
+impl Visitor {
+    fn check(&mut self) -> bool {
+        if self.blocked {
+            return true;
+        }
+
+        let mut blocked = false;
+        if self.visits.len() > 3 {
+            blocked = true;
+        }
+
+        let last_visit = self.visits.last().unwrap();
+        if last_visit.method == "POST" {
+            blocked = true;
+        }        
+        
+        self.blocked = blocked;
+        blocked
+    }
+}
+
+fn main() {
     let args = Args::parse();
 
     if args.from_file.is_none() && args.text.is_none() {        
@@ -76,22 +122,70 @@ fn main() {
     let color_reset = "\x1b[0m";
     let color_yellow = "\x1b[93m";
 
+    // key is ip address
+    let mut visitors: HashMap<String, Visitor> = HashMap::new();
+
 
     println!("Server started \r\nport: {} \r\nendpoint: {}\r\n",port, endpoint);
 
+
+    // Reject Response = Response::new(tiny_http::StatusCode(404), vec![Header::from_str(format!("Server: {}",args.server_name).as_str()).unwrap()], "".as_bytes(), None, None);
     for request in server.incoming_requests() {
+
+        match visitors.get_mut(&request.remote_addr().unwrap().to_string()) {
+            Some(visitor) => {
+                visitor.visits.push(Visit {
+                    datetime: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+                    ip: request.remote_addr().unwrap().to_string(),
+                    endpoint: request.url().to_string(),
+                    method: request.method().as_str().to_string(),
+                    version: request.http_version().to_string()
+                });
+            },
+            None => {
+                let first_visit = Visit {
+                    datetime: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+                    ip: request.remote_addr().unwrap().to_string(),
+                    endpoint: request.url().to_string(),
+                    method: request.method().as_str().to_string(),
+                    version: request.http_version().to_string()
+                };
+                visitors.insert(request.remote_addr().unwrap().to_string(), Visitor {
+                    visits: vec![first_visit],
+                    blocked: false
+                });
+            }
+        }
+
+        let blocked =visitors.get_mut(&request.remote_addr().unwrap().to_string()).unwrap().check();
 
         println!(r#"{color_green}Request{color_reset}
 {color_yellow}DateTime:{color_reset}{}
 {color_yellow}IP:{color_reset}{}
 {color_yellow}Enpoint:{color_reset}{}
-"#,
+{color_yellow}Method:{color_reset}{}
+{color_yellow}Version:{color_reset}{}
+{}"#,
 chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
 request.remote_addr().unwrap().to_string(),
-request.url(),);
+request.url(),
+request.method().as_str(),
+request.http_version(),
+if blocked {"blocked\r\n"} else {""});
+
+
+        //visitors.get_mut(&request.remote_addr().unwrap().to_string()).unwrap().check();
+
+        // if visitor blocked, respond with 404
+        if blocked {
+            let resp = Response::new(tiny_http::StatusCode(404), vec![Header::from_str(format!("Server: {}",args.server_name).as_str()).unwrap()], "".as_bytes(), None, None);
+            request.respond(resp).unwrap();
+            continue;
+        }
 
         if request.url() != ("/".to_string() + &endpoint) {
-            request.respond(Response::from_string("nothing")).unwrap();
+            let resp = Response::new(tiny_http::StatusCode(404), vec![Header::from_str(format!("Server: {}",args.server_name).as_str()).unwrap()], "".as_bytes(), None, None);
+            request.respond(resp).unwrap();
             continue;
         }
 
@@ -99,6 +193,7 @@ request.url(),);
             // İlk ve tek erişim — mesajı göster
 
             println!("seen!");
+
             let msg = match args.from_file {
                 Some(file_path) => std::fs::read_to_string(file_path).unwrap(),
                 None => match args.text {
@@ -106,12 +201,6 @@ request.url(),);
                     None => "nothing".to_string()
                 }
             };
-            /*let msg = r#"
-F5 ÇEKME
-Bu sayfa tek gösterimlik ve kendini yok edecek.
-<h1>sa</h1>
-
-            "#;*/
             
             let content_type = Header::from_str(format!("Content-Type: {}",args.content_type).as_str()).unwrap();
             let server_hdr = Header::from_str(format!("Server: {}", args.server_name).as_str()).unwrap();

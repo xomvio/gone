@@ -1,0 +1,51 @@
+# Config file for sdhttpp
+# If config file is not found, default values are used
+# CLI flags overrides config values
+
+# Port to listen on
+# Default is random between 1024 and 65535
+#port = "8080"
+
+# Content type for http response
+# You can use any valid MIME type
+# Default is text/html
+content_type = "text/html"
+
+# Server name to show in http response headers
+# Default is nginx to mislead attackers
+server_name = "nginx"
+
+# Maximum number of visits per IP
+# If max_visits is exceeded, IP is blocked
+# Default is 3
+max_visits = 3
+
+# List of allowed HTTP methods
+# If visit is made with a method not in this list, visitor is blocked
+# Default is only GET
+allowed_methods = ["GET"]
+
+# You should use one of the from_file or text options to serve content
+# Path to file to serve when correct endpoint is requested
+# Default is none
+#from_file = "test.html"
+
+# Text to serve when correct endpoint is requested
+# Default is none
+#text = "Hello World"
+
+# Correct endpoint to serve our content
+# Default is randomized 64 character string
+#endpoint = "/hello"
+
+# Path to log output file
+# Default is none
+#output = "output.log"
+
+# List of IP addresses to block
+#blacklist = ["237.84.2.178", "38.0.101.76"]
+
+# List of IP addresses to allow
+# If whitelist is specified, blacklist is ignored
+#whitelist = ["237.84.2.178", "38.0.101.76"]
+
