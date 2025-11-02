@@ -49,7 +49,11 @@ struct Config {
 fn get_config() -> Config {
     let args = Args::parse();
 
-    let mut config: Config = toml::from_str(include_str!("../config.toml")).unwrap();
+    let config_content = include_str!("../config.toml");
+    let mut config: Config = toml::from_str(config_content).unwrap_or_else(|e| {
+        eprintln!("Error parsing config.toml: {}", e);
+        std::process::exit(1);
+    });
 
     if args.port.is_some() {
         config.port = args.port;
@@ -71,7 +75,7 @@ fn get_config() -> Config {
 
 fn random_port() -> String {
     let mut rng = rand::rng();
-    let port: u16 = rng.random();
+    let port: u16 = rng.random_range(1024..=65535); // Use a valid port range
     port.to_string()
 }
 
@@ -111,7 +115,10 @@ impl Visitor {
             blocked = true;
         }
 
-        let last_visit = self.visits.last().unwrap();
+        let last_visit = match self.visits.last() {
+            Some(visit) => visit,
+            None => return false, // No visits yet, not blocked
+        };
         if last_visit.method == "POST" {
             blocked = true;
         }
@@ -148,7 +155,13 @@ fn main() {
     };
 
     // tiny_http server
-    let server = Server::http(format!("0.0.0.0:{}",port)).unwrap();
+    let server = match Server::http(format!("0.0.0.0:{}", port)) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Failed to start server: {}", e);
+            std::process::exit(1);
+        }
+    };
 
     // colors for terminal output
     let color_green = "\x1b[92m";
@@ -165,11 +178,19 @@ fn main() {
     // Reject Response = Response::new(tiny_http::StatusCode(404), vec![Header::from_str(format!("Server: {}",config.server_name).as_str()).unwrap()], "".as_bytes(), None, None);
     for request in server.incoming_requests() {
 
-        match visitors.get_mut(&request.remote_addr().unwrap().to_string()) {
+        let remote_addr = match request.remote_addr() {
+            Some(addr) => addr.to_string(),
+            None => {
+                eprintln!("Could not get remote address");
+                continue;
+            }
+        };
+        
+        match visitors.get_mut(&remote_addr) {
             Some(visitor) => {
                 visitor.visits.push(Visit {
                     datetime: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-                    ip: request.remote_addr().unwrap().to_string(),
+                    ip: remote_addr.clone(),
                     endpoint: request.url().to_string(),
                     method: request.method().as_str().to_string(),
                     version: request.http_version().to_string()
@@ -178,19 +199,23 @@ fn main() {
             None => {
                 let first_visit = Visit {
                     datetime: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-                    ip: request.remote_addr().unwrap().to_string(),
+                    ip: remote_addr.clone(),
                     endpoint: request.url().to_string(),
                     method: request.method().as_str().to_string(),
                     version: request.http_version().to_string()
                 };
-                visitors.insert(request.remote_addr().unwrap().to_string(), Visitor {
+                visitors.insert(remote_addr.clone(), Visitor {
                     visits: vec![first_visit],
                     blocked: false
                 });
             }
         }
 
-        let blocked = visitors.get_mut(&request.remote_addr().unwrap().to_string()).unwrap().check(&config);
+        let blocked = if let Some(visitor) = visitors.get_mut(&remote_addr) {
+            visitor.check(&config)
+        } else {
+            false
+        };
 
         println!(r#"{color_green}Request{color_reset}
 {color_yellow}DateTime:{color_reset}{}
@@ -208,33 +233,79 @@ if blocked {"blocked\r\n"} else {""});
 
         // if visitor blocked, respond with 404
         if blocked || request.url() != ("/".to_string() + &endpoint) {
-            let resp = Response::new(tiny_http::StatusCode(404), vec![Header::from_str(format!("Server: {}",config.server_name.to_owned().unwrap_or("nginx".to_string())).as_str()).unwrap()], "".as_bytes(), None, None);
-            request.respond(resp).unwrap();
+            let server_name = config.server_name.as_deref().unwrap_or("nginx");
+            let server_header = format!("Server: {}", server_name);
+            let header = match Header::from_str(&server_header) {
+                Ok(h) => h,
+                Err(e) => {
+                    eprintln!("Failed to create header: {}", server_header);
+                    std::process::exit(1);
+                }
+            };
+            
+            let resp = Response::new(
+                tiny_http::StatusCode(404),
+                vec![header],
+                "".as_bytes(),
+                None,
+                None
+            );
+            if let Err(e) = request.respond(resp) {
+                eprintln!("Failed to send response: {}", e);
+            }
             continue;
         }
 
         if !used.swap(true, Ordering::SeqCst) {
-            // İlk ve tek erişim — mesajı göster
+            // İlk ve tek erişim. mesajı göster
 
             println!("seen!");
 
-            let msg = match config.from_file {
-                Some(file_path) => std::fs::read_to_string(file_path).unwrap(),
-                None => match config.text {
-                    Some(msg) => msg,
-                    None => "nothing".to_string()
+            let msg = match &config.from_file {
+                Some(file_path) => match std::fs::read_to_string(file_path) {
+                    Ok(content) => content,
+                    Err(e) => {
+                        eprintln!("Failed to read file: {}", e);
+                        "Error reading file".to_string()
+                    }
+                },
+                None => config.text.as_deref().unwrap_or("nothing").to_string()
+            };
+            
+            let content_type = match Header::from_str(&format!("Content-Type: {}", config.content_type.as_deref().unwrap_or("text/html"))) {
+                Ok(header) => header,
+                Err(e) => {
+                    eprintln!("Failed to create content type header: {}", config.content_type.as_deref().unwrap_or("text/html"));
+                    std::process::exit(1);
                 }
             };
             
-            let content_type = Header::from_str(format!("Content-Type: {}",config.content_type.unwrap_or("text/html".to_string())).as_str()).unwrap();
-            let server_hdr = Header::from_str(format!("Server: {}", config.server_name.unwrap_or("nginx".to_string())).as_str()).unwrap();
-            let resp = Response::new(tiny_http::StatusCode(200), vec![content_type,server_hdr], msg.as_bytes(), Some(msg.len()), None);
-            request.respond(resp).unwrap();
+            let server_hdr = match Header::from_str(&format!("Server: {}", config.server_name.as_deref().unwrap_or("nginx"))) {
+                Ok(header) => header,
+                Err(e) => {
+                    eprintln!("Failed to create server header: {}", config.server_name.as_deref().unwrap_or("nginx"));
+                    std::process::exit(1);
+                }
+            };
+            
+            let resp = Response::new(
+                tiny_http::StatusCode(200),
+                vec![content_type, server_hdr],
+                msg.as_bytes(),
+                Some(msg.len()),
+                None
+            );
+            
+            if let Err(e) = request.respond(resp) {
+                eprintln!("Failed to send response: {}", e);
+            }
             
             return;
         } else {
             // diger tüm erişimlerde hata ver
-            request.respond(Response::from_string("nothing")).unwrap();
+            if let Err(e) = request.respond(Response::from_string("nothing")) {
+                eprintln!("Failed to send response: {}", e);
+            }
         }
     }
 }
