@@ -9,6 +9,18 @@ use std::str::FromStr;
 
 use crate::{models::{Config, Visitor, Visit}, utils};
 
+/// Helper function to create a header with proper error handling
+fn create_header(name: &str, value: &str) -> Header {
+    let header_str = format!("{}: {}", name, value);
+    match Header::from_str(&header_str) {
+        Ok(header) => header,
+        Err(_) => {
+            eprintln!("Failed to create header: {}: {}", name, value);
+            std::process::exit(1);
+        }
+    }
+}
+
 pub fn run_server(config: Config) -> ! {
     // one use flag
     let used = Arc::new(AtomicBool::new(false));
@@ -99,18 +111,9 @@ pub fn run_server(config: Config) -> ! {
         // if visitor blocked, respond with 404
         if blocked || request.url() != ("/".to_string() + &endpoint) {
             let server_name = config.server_name.as_deref().unwrap_or("nginx");
-            let server_header = format!("Server: {}", server_name);
-            let header = match Header::from_str(&server_header) {
-                Ok(h) => h,
-                Err(_) => {
-                    eprintln!("Failed to create header: {}", server_header);
-                    std::process::exit(1);
-                }
-            };
-            
             let resp = Response::new(
                 tiny_http::StatusCode(404),
-                vec![header],
+                vec![create_header("Server", server_name)],
                 "".as_bytes(),
                 None,
                 None
@@ -136,25 +139,12 @@ pub fn run_server(config: Config) -> ! {
                 None => config.text.as_deref().unwrap_or("nothing").to_string()
             };
             
-            let content_type = match Header::from_str(&format!("Content-Type: {}", config.content_type.as_deref().unwrap_or("text/html"))) {
-                Ok(header) => header,
-                Err(_) => {
-                    eprintln!("Failed to create content type header: {}", config.content_type.as_deref().unwrap_or("text/html"));
-                    std::process::exit(1);
-                }
-            };
-            
-            let server_hdr = match Header::from_str(&format!("Server: {}", config.server_name.as_deref().unwrap_or("nginx"))) {
-                Ok(header) => header,
-                Err(_) => {
-                    eprintln!("Failed to create server header: {}", config.server_name.as_deref().unwrap_or("nginx"));
-                    std::process::exit(1);
-                }
-            };
-            
             let resp = Response::new(
                 tiny_http::StatusCode(200),
-                vec![content_type, server_hdr],
+                vec![
+                    create_header("Content-Type", config.content_type.as_deref().unwrap_or("text/html")),
+                    create_header("Server", config.server_name.as_deref().unwrap_or("nginx")),
+                ],
                 msg.as_bytes(),
                 Some(msg.len()),
                 None

@@ -4,7 +4,7 @@ mod server;
 mod utils;
 
 fn main() {
-    let config = config::get();
+    let config = config::load();
 
     if config.from_file.is_none() && config.text.is_none() {        
         println!("You must specify either --from-file or --text\r\ntype \"sdhttpp --help\" for more info");
