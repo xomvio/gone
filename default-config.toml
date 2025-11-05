@@ -1,20 +1,14 @@
-# sdHTTPp Configuration File
-# ========================
-#
-# This is a TOML configuration file for sdHTTPp, a simple HTTP server for serving
-# content with security through obscurity.
-#
-# Command line arguments will override these settings.
-# Generate a default config with: cargo run -- --generate-config
+# Default configuration for sdHTTPp
+# Save this file as 'config.toml' and modify as needed
 
 [server]
 # Port to listen on (1024-65535)
-# Default: random available port
-#port = "8080"
+# Default: try random port
+# port = "8080"
 
 # Content-Type header for the response
 # Examples: "text/plain", "text/html", "application/json"
-#content_type = "text/html"
+# content_type = "text/html"
 
 # Server header to send in responses
 # Tip: Using common server names like 'nginx' or 'apache' can help avoid detection
@@ -22,11 +16,11 @@ server_name = "nginx"
 
 # Custom endpoint path (must start with /)
 # If not set, a random 64-character endpoint will be generated
-#endpoint = "/s3cr3t"
+# endpoint = "/s3cr3t"
 
 # Path to output log file (optional)
 # If not set, logs will only go to stdout
-#output = "sdhttpp.log"
+# output = "sdhttpp.log"
 
 [content]
 # Content to serve (choose one of the following options):
@@ -40,7 +34,7 @@ text = "This is a secret message that will be shown once."
 [security]
 # Maximum number of visits allowed per IP address before blocking
 # Set to 0 for unlimited visits
-max_visits = 3
+max_visits = 5
 
 # Allowed HTTP methods (visits with other methods will be blocked)
 # Common methods: GET, POST, HEAD, PUT, DELETE, etc.
@@ -54,12 +48,3 @@ blacklist = []
 # Overrides blacklist for matching IPs
 # Example: ["192.168.1.1", "203.0.113.42"]
 whitelist = []
-
-[rate_limiting]
-# Enable rate limiting (requests per minute per IP)
-# Set to 0 to disable
-requests_per_minute = 0
-
-# Block IPs that exceed the rate limit for this many minutes
-# Set to 0 to block permanently
-block_duration_minutes = 0

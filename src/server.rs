@@ -25,12 +25,12 @@ pub fn run_server(config: Config) -> ! {
     // one use flag
     let used = Arc::new(AtomicBool::new(false));
     
-    let port = match &config.port {
+    let port = match &config.server.port {
         Some(port) => port,
         None => &utils::random_port()
     };
     
-    let endpoint = match &config.endpoint {
+    let endpoint = match &config.server.endpoint {
         Some(endpoint) => endpoint,
         None => &utils::random_endpoint()
     };
@@ -110,7 +110,7 @@ pub fn run_server(config: Config) -> ! {
 
         // if visitor blocked, respond with 404
         if blocked || request.url() != ("/".to_string() + &endpoint) {
-            let server_name = config.server_name.as_deref().unwrap_or("nginx");
+            let server_name = config.server.server_name.as_deref().unwrap_or("nginx");
             let resp = Response::new(
                 tiny_http::StatusCode(404),
                 vec![create_header("Server", server_name)],
@@ -128,7 +128,7 @@ pub fn run_server(config: Config) -> ! {
             // First and only access - show the message
             println!("seen!");
 
-            let msg = match &config.from_file {
+            let msg = match &config.content.from_file {
                 Some(file_path) => match std::fs::read_to_string(file_path) {
                     Ok(content) => content,
                     Err(e) => {
@@ -136,14 +136,14 @@ pub fn run_server(config: Config) -> ! {
                         "Error reading file".to_string()
                     }
                 },
-                None => config.text.as_deref().unwrap_or("nothing").to_string()
+                None => config.content.text.as_deref().unwrap_or("nothing").to_string()
             };
             
             let resp = Response::new(
                 tiny_http::StatusCode(200),
                 vec![
-                    create_header("Content-Type", config.content_type.as_deref().unwrap_or("text/html")),
-                    create_header("Server", config.server_name.as_deref().unwrap_or("nginx")),
+                    create_header("Content-Type", config.server.content_type.as_deref().unwrap_or("text/html")),
+                    create_header("Server", config.server.server_name.as_deref().unwrap_or("nginx")),
                 ],
                 msg.as_bytes(),
                 Some(msg.len()),
