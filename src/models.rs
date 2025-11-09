@@ -50,6 +50,15 @@ pub struct SecurityConfig {
     pub whitelist: Option<Vec<String>>,
 }
 
+impl SecurityConfig {
+    pub fn is_method_allowed(&self, method: &str) -> bool {
+        match &self.allowed_methods {
+            Some(methods) => methods.iter().any(|m| m.eq_ignore_ascii_case(method)),
+            None => true, // if no allowed_methods defined, allow all
+        }
+    }
+}
+
 // Implement Default for all config sections
 impl Default for ServerConfig {
     fn default() -> Self {

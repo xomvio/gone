@@ -62,6 +62,8 @@ pub fn run_server(config: Config) -> ! {
                 continue;
             }
         };
+
+        let method = request.method().as_str();
         
         match visitors.get_mut(&remote_addr) {
             Some(visitor) => {
@@ -69,7 +71,7 @@ pub fn run_server(config: Config) -> ! {
                     datetime: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
                     ip: remote_addr.clone(),
                     endpoint: request.url().to_string(),
-                    method: request.method().as_str().to_string(),
+                    method: method.to_string(),
                     version: request.http_version().to_string()
                 });
             },
@@ -78,7 +80,7 @@ pub fn run_server(config: Config) -> ! {
                     datetime: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
                     ip: remote_addr.clone(),
                     endpoint: request.url().to_string(),
-                    method: request.method().as_str().to_string(),
+                    method: method.to_string(),
                     version: request.http_version().to_string()
                 };
                 visitors.insert(remote_addr.clone(), Visitor {
@@ -100,20 +102,21 @@ pub fn run_server(config: Config) -> ! {
 {color_yellow}Enpoint:{color_reset}{}
 {color_yellow}Method:{color_reset}{}
 {color_yellow}Version:{color_reset}{}
-{}"#,
-        chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-        remote_addr,
-        request.url(),
-        request.method().as_str(),
-        request.http_version(),
-        if blocked {"blocked\r\n"} else {""});
+{}"#, chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+        remote_addr, request.url(), &method,
+        request.http_version(), if blocked {"blocked\r\n"} else {""});
+
+
 
         // if visitor blocked, respond with 404
-        if blocked || request.url() != ("/".to_string() + &endpoint) {
-            let server_name = config.server.server_name.as_deref().unwrap_or("nginx");
+        if blocked 
+        || request.url() != ("/".to_string() + &endpoint)
+        || config.security.is_method_allowed(&method)
+        {
+            //          let server_name = config.server.server_name.as_deref().unwrap_or("nginx");
             let resp = Response::new(
-                tiny_http::StatusCode(404),
-                vec![create_header("Server", server_name)],
+                tiny_http::StatusCode(500),
+                vec![/*create_header("Server", server_name)*/],
                 "".as_bytes(),
                 None,
                 None
