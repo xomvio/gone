@@ -6,8 +6,17 @@ use tiny_http::{Header, Response, Server};
 use std::collections::HashMap;
 use chrono;
 use std::str::FromStr;
+use std::borrow::Cow;
 
-use crate::{models::{Config, Visitor, Visit}, utils};
+use crate::{
+    models::{Config, Visitor, Visit},
+    utils
+};
+
+// Helper function to get a string slice from Cow<str> or default
+fn cow_str_to_str<'a>(cow: &'a Option<Cow<'static, str>>, default: &'static str) -> &'a str {
+    cow.as_deref().unwrap_or(default)
+}
 
 /// Helper function to create a header with proper error handling
 fn create_header(name: &str, value: &str) -> Header {
@@ -25,14 +34,14 @@ pub fn run_server(config: Config) -> ! {
     // one use flag
     let used = Arc::new(AtomicBool::new(false));
     
-    let port = match &config.server.port {
+    let port = match config.server.port {
         Some(port) => port,
-        None => &utils::random_port()
+        None => utils::random_port()
     };
     
-    let endpoint = match &config.server.endpoint {
+    let endpoint = match config.server.endpoint.clone() {
         Some(endpoint) => endpoint,
-        None => &utils::random_endpoint()
+        None => utils::random_endpoint()
     };
 
     // tiny_http server
@@ -97,27 +106,30 @@ pub fn run_server(config: Config) -> ! {
         };
 
         println!(r#"{color_green}Request{color_reset}
-{color_yellow}DateTime:{color_reset}{}
-{color_yellow}IP:{color_reset}{}
-{color_yellow}Enpoint:{color_reset}{}
-{color_yellow}Method:{color_reset}{}
-{color_yellow}Version:{color_reset}{}
-{}"#, chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-        remote_addr, request.url(), &method,
-        request.http_version(), if blocked {"blocked\r\n"} else {""});
-
-
+{color_yellow}DateTime:{color_reset} {}
+{color_yellow}IP:{color_reset} {}
+{color_yellow}Endpoint:{color_reset} {}
+{color_yellow}Method:{color_reset} {}
+{color_yellow}Version:{color_reset} {}
+{}"#, 
+            chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+            remote_addr, 
+            request.url(), 
+            method,
+            request.http_version(), 
+            if blocked { "blocked\r\n" } else { "" }
+        );
 
         // if visitor blocked, respond with 404
         if blocked 
-        || request.url() != ("/".to_string() + &endpoint)
-        || config.security.is_method_allowed(&method)
+        || request.url() != format!("/{}", endpoint)
+        || !config.security.is_method_allowed(method)
         {
-            //          let server_name = config.server.server_name.as_deref().unwrap_or("nginx");
+            let server_name = cow_str_to_str(&config.server.server_name, "sdHTTPp");
             let resp = Response::new(
-                tiny_http::StatusCode(500),
-                vec![/*create_header("Server", server_name)*/],
-                "".as_bytes(),
+                tiny_http::StatusCode(404),
+                vec![create_header("Server", server_name)],
+                "404 Not Found".as_bytes(),
                 None,
                 None
             );
@@ -131,25 +143,29 @@ pub fn run_server(config: Config) -> ! {
             // First and only access - show the message
             println!("seen!");
 
-            let msg = match &config.content.from_file {
+            let (content, content_type) = match &config.content.from_file {
                 Some(file_path) => match std::fs::read_to_string(file_path) {
-                    Ok(content) => content,
+                    Ok(content) => (content, cow_str_to_str(&config.server.content_type, "text/plain")),
                     Err(e) => {
                         eprintln!("Failed to read file: {}", e);
-                        "Error reading file".to_string()
+                        ("Error reading file".to_string(), "text/plain")
                     }
                 },
-                None => config.content.text.as_deref().unwrap_or("nothing").to_string()
+                None => (
+                    cow_str_to_str(&config.content.text, "No content").to_string(),
+                    cow_str_to_str(&config.server.content_type, "text/plain")
+                )
             };
             
+            let server_name = cow_str_to_str(&config.server.server_name, "sdHTTPp");
             let resp = Response::new(
                 tiny_http::StatusCode(200),
                 vec![
-                    create_header("Content-Type", config.server.content_type.as_deref().unwrap_or("text/html")),
-                    create_header("Server", config.server.server_name.as_deref().unwrap_or("nginx")),
+                    create_header("Content-Type", content_type),
+                    create_header("Server", server_name),
                 ],
-                msg.as_bytes(),
-                Some(msg.len()),
+                content.as_bytes(),
+                Some(content.len()),
                 None
             );
             

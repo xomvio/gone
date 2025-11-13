@@ -1,4 +1,5 @@
 use clap::Parser;
+use std::borrow::Cow;
 use std::fs;
 use std::path::Path;
 use toml;
@@ -89,19 +90,19 @@ pub fn load() -> crate::models::Config {
 
     // Override with command line arguments
     if let Some(port) = args.port {
-        config.server.port = Some(port);
+        config.server.port = Some(port.parse().unwrap());
     }
     if let Some(content_type) = args.content_type {
-        config.server.content_type = Some(content_type);
+        config.server.content_type = Some(Cow::Owned(content_type));
     }
     if let Some(server_name) = args.server_name {
-        config.server.server_name = Some(server_name);
+        config.server.server_name = Some(Cow::Owned(server_name));
     }
     if let Some(from_file) = args.from_file {
         config.content.from_file = Some(from_file);
     }
     if let Some(text) = args.text {
-        config.content.text = Some(text);
+        config.content.text = Some(text.into());
     }
     if let Some(endpoint) = args.endpoint {
         config.server.endpoint = Some(endpoint);
@@ -129,7 +130,7 @@ fn validate_config(config: &crate::models::Config) {
 
     // Validate port if specified
     if let Some(port) = &config.server.port {
-        if port.parse::<u16>().is_err() {
+        if port < &1024 || port > &65535 {
             eprintln!("Error: Invalid port number '{}'", port);
             std::process::exit(1);
         }

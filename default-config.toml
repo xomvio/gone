@@ -3,7 +3,7 @@
 
 [server]
 # Port to listen on (1024-65535)
-# Default: try random port
+# Default: tries random port
 # port = "8080"
 
 # Content-Type header for the response
