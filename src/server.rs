@@ -109,6 +109,7 @@ fn serve_content(request: tiny_http::Request, config: &Config, server_name: &str
     );
     if let Err(e) = request.respond(resp) {
         eprintln!("Failed to send response: {}", e);
+        return false;
     }
     true
 }
@@ -132,6 +133,7 @@ pub fn run_server(config: Config) -> ! {
     });
 
     let mut visitors: HashMap<String, Visitor> = HashMap::new();
+    let expected_url = format!("/{}", endpoint);
 
     println!("Server started\nport: {}\nendpoint: {}\n", port, endpoint);
 
@@ -161,12 +163,15 @@ pub fn run_server(config: Config) -> ! {
 
         log_request(&now, &remote_ip, &url, &method, &version, if blocked { "blocked" } else { "" }, &mut log_file);
 
-        if blocked || url != format!("/{}", endpoint) || !config.security.is_method_allowed(&method) {
+        if blocked || url != expected_url || !config.security.is_method_allowed(&method) {
             send_404(request, &server_name);
             continue;
         }
 
         println!("seen!");
+        if let Some(f) = &mut log_file {
+            let _ = f.flush();
+        }
         if serve_content(request, &config, &server_name) {
             std::process::exit(0);
         } else {

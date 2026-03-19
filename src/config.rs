@@ -149,6 +149,18 @@ pub struct Args {
     #[arg(long, value_name = "COUNT")]
     pub max_visits: Option<u32>,
 
+    /// Allowed HTTP methods, comma-separated (e.g., GET,POST)
+    #[arg(long, value_name = "METHODS", value_delimiter = ',')]
+    pub allowed_methods: Option<Vec<String>>,
+
+    /// IP addresses to always block, comma-separated
+    #[arg(long, value_name = "IPS", value_delimiter = ',')]
+    pub blacklist: Option<Vec<String>>,
+
+    /// IP addresses to allow exclusively, comma-separated
+    #[arg(long, value_name = "IPS", value_delimiter = ',')]
+    pub whitelist: Option<Vec<String>>,
+
     /// Generate a default config file and exit
     #[arg(long)]
     pub generate_config: bool,
@@ -223,6 +235,15 @@ pub fn load() -> Config {
     if let Some(max_visits) = args.max_visits {
         config.security.max_visits = Some(max_visits);
     }
+    if let Some(allowed_methods) = args.allowed_methods {
+        config.security.allowed_methods = Some(allowed_methods);
+    }
+    if let Some(blacklist) = args.blacklist {
+        config.security.blacklist = Some(blacklist);
+    }
+    if let Some(whitelist) = args.whitelist {
+        config.security.whitelist = Some(whitelist);
+    }
 
     validate(&config);
     config
@@ -252,6 +273,17 @@ fn validate(config: &Config) {
 
     validate_ip_list("blacklist", config.security.blacklist.as_deref().unwrap_or(&[]));
     validate_ip_list("whitelist", config.security.whitelist.as_deref().unwrap_or(&[]));
+
+    if let Some(path) = &config.content.from_file {
+        if path.contains("..") {
+            eprintln!("Error: --from-file path must not contain '..'");
+            std::process::exit(1);
+        }
+        if !Path::new(path).exists() {
+            eprintln!("Error: File not found: '{}'", path);
+            std::process::exit(1);
+        }
+    }
 }
 
 fn validate_ip_list(list_name: &str, ips: &[String]) {
