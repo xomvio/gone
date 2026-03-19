@@ -84,7 +84,7 @@ impl Default for ServerConfig {
     fn default() -> Self {
         Self {
             port: None,
-            content_type: Some(Cow::Borrowed("text/html")),
+            content_type: Some(Cow::Borrowed("text/plain")),
             server_name: Some(Cow::Borrowed("nginx")),
             endpoint: None,
             output: None,

@@ -1,7 +1,5 @@
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
+use std::io::{BufWriter, Write};
+use std::fs::{File, OpenOptions};
 use tiny_http::{Header, Response, Server};
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -46,16 +44,28 @@ fn extract_ip(request: &tiny_http::Request) -> Option<String> {
     })
 }
 
-fn log_request(now: &str, ip: &str, url: &str, method: &str, version: &str, status: &str) {
+fn log_request(
+    now: &str, ip: &str, url: &str, method: &str, version: &str, status: &str,
+    log_file: &mut Option<BufWriter<File>>,
+) {
+    let plain = format!(
+        "Request\nDateTime: {now}\nIP: {ip}\nEndpoint: {url}\nMethod: {method}\nVersion: {version}{}",
+        if status.is_empty() { String::new() } else { format!("\n{status}") }
+    );
+
     println!(
         "{COLOR_GREEN}Request{COLOR_RESET}\n\
          {COLOR_YELLOW}DateTime:{COLOR_RESET} {now}\n\
          {COLOR_YELLOW}IP:{COLOR_RESET} {ip}\n\
          {COLOR_YELLOW}Endpoint:{COLOR_RESET} {url}\n\
          {COLOR_YELLOW}Method:{COLOR_RESET} {method}\n\
-         {COLOR_YELLOW}Version:{COLOR_RESET} {version}\n\
-         {status}"
+         {COLOR_YELLOW}Version:{COLOR_RESET} {version}{}",
+        if status.is_empty() { String::new() } else { format!("\n{status}") }
     );
+
+    if let Some(f) = log_file {
+        let _ = writeln!(f, "{}", plain);
+    }
 }
 
 fn send_404(request: tiny_http::Request, server_name: &str) {
@@ -71,13 +81,14 @@ fn send_404(request: tiny_http::Request, server_name: &str) {
     }
 }
 
-fn serve_content(request: tiny_http::Request, config: &Config, server_name: &str) {
+/// Returns true on success, false if content could not be loaded.
+fn serve_content(request: tiny_http::Request, config: &Config, server_name: &str) -> bool {
     let (content, content_type) = match &config.content.from_file {
         Some(path) => match std::fs::read_to_string(path) {
             Ok(c) => (c, cow_str_to_str(&config.server.content_type, "text/plain")),
             Err(e) => {
-                eprintln!("Failed to read file: {}", e);
-                ("Error reading file".to_string(), "text/plain")
+                eprintln!("Failed to read file '{}': {}", path, e);
+                return false;
             }
         },
         None => (
@@ -99,13 +110,21 @@ fn serve_content(request: tiny_http::Request, config: &Config, server_name: &str
     if let Err(e) = request.respond(resp) {
         eprintln!("Failed to send response: {}", e);
     }
+    true
 }
 
 pub fn run_server(config: Config) -> ! {
-    let used = Arc::new(AtomicBool::new(false));
     let port = config.server.port.unwrap_or_else(utils::random_port);
     let endpoint = config.server.endpoint.clone().unwrap_or_else(utils::random_endpoint);
     let server_name = cow_str_to_str(&config.server.server_name, "sdHTTPp").to_string();
+
+    let mut log_file: Option<BufWriter<File>> = config.server.output.as_ref().map(|path| {
+        OpenOptions::new().create(true).append(true).open(path)
+            .unwrap_or_else(|e| {
+                eprintln!("Failed to open log file '{}': {}", path, e);
+                std::process::exit(1);
+            })
+    }).map(BufWriter::new);
 
     let server = Server::http(format!("0.0.0.0:{}", port)).unwrap_or_else(|e| {
         eprintln!("Failed to start server: {}", e);
@@ -113,6 +132,7 @@ pub fn run_server(config: Config) -> ! {
     });
 
     let mut visitors: HashMap<String, Visitor> = HashMap::new();
+
     println!("Server started\nport: {}\nendpoint: {}\n", port, endpoint);
 
     for request in server.incoming_requests() {
@@ -127,28 +147,30 @@ pub fn run_server(config: Config) -> ! {
         let now     = now_str();
 
         if !config.security.is_ip_allowed(&remote_ip) {
-            log_request(&now, &remote_ip, &url, &method, &version, "blocked (IP not allowed)");
+            log_request(&now, &remote_ip, &url, &method, &version, "blocked (IP not allowed)", &mut log_file);
             send_404(request, &server_name);
             continue;
         }
 
         let visitor = visitors.entry(remote_ip.clone()).or_insert_with(Visitor::new);
-        visitor.visits.push(Visit { datetime: now.clone(), ip: remote_ip.clone(), endpoint: url.clone(), method: method.clone(), version: version.clone() });
+        visitor.visits.push(Visit {
+            datetime: now.clone(), ip: remote_ip.clone(),
+            endpoint: url.clone(), method: method.clone(), version: version.clone(),
+        });
         let blocked = visitor.check(&config);
 
-        log_request(&now, &remote_ip, &url, &method, &version, if blocked { "blocked" } else { "" });
+        log_request(&now, &remote_ip, &url, &method, &version, if blocked { "blocked" } else { "" }, &mut log_file);
 
         if blocked || url != format!("/{}", endpoint) || !config.security.is_method_allowed(&method) {
             send_404(request, &server_name);
             continue;
         }
 
-        if !used.swap(true, Ordering::SeqCst) {
-            println!("seen!");
-            serve_content(request, &config, &server_name);
+        println!("seen!");
+        if serve_content(request, &config, &server_name) {
             std::process::exit(0);
-        } else if let Err(e) = request.respond(Response::from_string("nothing")) {
-            eprintln!("Failed to send response: {}", e);
+        } else {
+            std::process::exit(1);
         }
     }
 
