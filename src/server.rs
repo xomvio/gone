@@ -4,6 +4,7 @@ use std::sync::{
 };
 use tiny_http::{Header, Response, Server};
 use std::collections::HashMap;
+use std::net::SocketAddr;
 use chrono;
 use std::str::FromStr;
 use std::borrow::Cow;
@@ -72,8 +73,27 @@ pub fn run_server(config: Config) -> ! {
             }
         };
 
+        let remote_ip = remote_addr.parse::<SocketAddr>()
+            .map(|a| a.ip().to_string())
+            .unwrap_or_else(|_| remote_addr.clone());
+
+        if !config.security.is_ip_allowed(&remote_ip) {
+            let server_name = cow_str_to_str(&config.server.server_name, "sdHTTPp");
+            let resp = Response::new(
+                tiny_http::StatusCode(404),
+                vec![create_header("Server", server_name)],
+                "404 Not Found".as_bytes(),
+                None,
+                None
+            );
+            if let Err(e) = request.respond(resp) {
+                eprintln!("Failed to send response: {}", e);
+            }
+            continue;
+        }
+
         let method = request.method().as_str();
-        
+
         match visitors.get_mut(&remote_addr) {
             Some(visitor) => {
                 visitor.visits.push(Visit {

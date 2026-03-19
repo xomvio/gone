@@ -40,8 +40,8 @@ max_visits = 5
 # Common methods: GET, POST, HEAD, PUT, DELETE, etc.
 allowed_methods = ["GET"]
 
-# List of IP addresses to always block (supports CIDR notation)
-# Example: ["192.168.1.100", "10.0.0.0/8"]
+# List of IP addresses to always block
+# Example: ["192.168.1.100", "10.0.0.1"]
 blacklist = []
 
 # List of allowed IP addresses (if not empty, only these IPs can access)

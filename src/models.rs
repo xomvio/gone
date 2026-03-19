@@ -104,6 +104,25 @@ impl SecurityConfig {
 
         Ok(())
     }
+
+    /// Returns false if the IP should be blocked, true if allowed.
+    /// Whitelist takes priority: if non-empty, only listed IPs are allowed.
+    /// Blacklisted IPs are always blocked (unless also whitelisted).
+    pub fn is_ip_allowed(&self, ip: &str) -> bool {
+        // check if whitelist is undefined or empty. if not, return true.
+        let whitelist_active = self.whitelist.as_ref().map(|wl| !wl.is_empty()).unwrap_or(false);
+
+        if whitelist_active {
+            let whitelisted = self.whitelist.as_ref().map(|wl| wl.iter().any(|w| w == ip)).unwrap_or(false);
+            return whitelisted;
+        }
+
+        let in_blacklist = self.blacklist.as_ref()
+            .map(|bl| bl.iter().any(|b| b == ip))
+            .unwrap_or(false);
+
+        !in_blacklist
+    }
 }
 
 impl SecurityConfig {
@@ -194,15 +213,6 @@ impl Visitor {
 
         let mut blocked = false;
         if self.visits.len() > _config.security.max_visits.unwrap_or(u32::MAX) as usize {
-            blocked = true;
-        }
-
-        let last_visit = match self.visits.last() {
-            Some(visit) => visit,
-            None => return false, // No visits yet, not blocked
-        };
-        
-        if last_visit.method == "POST" {
             blocked = true;
         }
 
