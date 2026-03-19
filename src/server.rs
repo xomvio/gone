@@ -5,25 +5,27 @@ use std::sync::{
 use tiny_http::{Header, Response, Server};
 use std::collections::HashMap;
 use std::net::SocketAddr;
-use chrono;
 use std::str::FromStr;
-use std::borrow::Cow;
+use chrono;
 
 use crate::{
-    models::{Config, Visitor, Visit},
-    utils
+    config::Config,
+    visitor::{Visitor, Visit},
+    utils,
 };
 
-// Helper function to get a string slice from Cow<str> or default
-fn cow_str_to_str<'a>(cow: &'a Option<Cow<'static, str>>, default: &'static str) -> &'a str {
+const COLOR_GREEN: &str = "\x1b[92m";
+const COLOR_RESET: &str = "\x1b[0m";
+const COLOR_YELLOW: &str = "\x1b[93m";
+
+fn cow_str_to_str<'a>(cow: &'a Option<std::borrow::Cow<'static, str>>, default: &'static str) -> &'a str {
     cow.as_deref().unwrap_or(default)
 }
 
-/// Helper function to create a header with proper error handling
 fn create_header(name: &str, value: &str) -> Header {
     let header_str = format!("{}: {}", name, value);
     match Header::from_str(&header_str) {
-        Ok(header) => header,
+        Ok(h) => h,
         Err(_) => {
             eprintln!("Failed to create header: {}: {}", name, value);
             std::process::exit(1);
@@ -31,177 +33,124 @@ fn create_header(name: &str, value: &str) -> Header {
     }
 }
 
+fn now_str() -> String {
+    chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
+}
+
+fn extract_ip(request: &tiny_http::Request) -> Option<String> {
+    request.remote_addr().map(|addr| {
+        let s = addr.to_string();
+        s.parse::<SocketAddr>()
+            .map(|a| a.ip().to_string())
+            .unwrap_or(s)
+    })
+}
+
+fn log_request(now: &str, ip: &str, url: &str, method: &str, version: &str, status: &str) {
+    println!(
+        "{COLOR_GREEN}Request{COLOR_RESET}\n\
+         {COLOR_YELLOW}DateTime:{COLOR_RESET} {now}\n\
+         {COLOR_YELLOW}IP:{COLOR_RESET} {ip}\n\
+         {COLOR_YELLOW}Endpoint:{COLOR_RESET} {url}\n\
+         {COLOR_YELLOW}Method:{COLOR_RESET} {method}\n\
+         {COLOR_YELLOW}Version:{COLOR_RESET} {version}\n\
+         {status}"
+    );
+}
+
+fn send_404(request: tiny_http::Request, server_name: &str) {
+    let resp = Response::new(
+        tiny_http::StatusCode(404),
+        vec![create_header("Server", server_name)],
+        "404 Not Found".as_bytes(),
+        None,
+        None,
+    );
+    if let Err(e) = request.respond(resp) {
+        eprintln!("Failed to send response: {}", e);
+    }
+}
+
+fn serve_content(request: tiny_http::Request, config: &Config, server_name: &str) {
+    let (content, content_type) = match &config.content.from_file {
+        Some(path) => match std::fs::read_to_string(path) {
+            Ok(c) => (c, cow_str_to_str(&config.server.content_type, "text/plain")),
+            Err(e) => {
+                eprintln!("Failed to read file: {}", e);
+                ("Error reading file".to_string(), "text/plain")
+            }
+        },
+        None => (
+            cow_str_to_str(&config.content.text, "No content").to_string(),
+            cow_str_to_str(&config.server.content_type, "text/plain"),
+        ),
+    };
+
+    let resp = Response::new(
+        tiny_http::StatusCode(200),
+        vec![
+            create_header("Content-Type", content_type),
+            create_header("Server", server_name),
+        ],
+        content.as_bytes(),
+        Some(content.len()),
+        None,
+    );
+    if let Err(e) = request.respond(resp) {
+        eprintln!("Failed to send response: {}", e);
+    }
+}
+
 pub fn run_server(config: Config) -> ! {
-    // one use flag
     let used = Arc::new(AtomicBool::new(false));
-    
-    let port = match config.server.port {
-        Some(port) => port,
-        None => utils::random_port()
-    };
-    
-    let endpoint = match config.server.endpoint.clone() {
-        Some(endpoint) => endpoint,
-        None => utils::random_endpoint()
-    };
+    let port = config.server.port.unwrap_or_else(utils::random_port);
+    let endpoint = config.server.endpoint.clone().unwrap_or_else(utils::random_endpoint);
+    let server_name = cow_str_to_str(&config.server.server_name, "sdHTTPp").to_string();
 
-    // tiny_http server
-    let server = match Server::http(format!("0.0.0.0:{}", port)) {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("Failed to start server: {}", e);
-            std::process::exit(1);
-        }
-    };
+    let server = Server::http(format!("0.0.0.0:{}", port)).unwrap_or_else(|e| {
+        eprintln!("Failed to start server: {}", e);
+        std::process::exit(1);
+    });
 
-    // colors for terminal output
-    let color_green = "\x1b[92m";
-    let color_reset = "\x1b[0m";
-    let color_yellow = "\x1b[93m";
-
-    // key is ip address
     let mut visitors: HashMap<String, Visitor> = HashMap::new();
-
-    println!("Server started \r\nport: {} \r\nendpoint: {}\r\n", port, endpoint);
+    println!("Server started\nport: {}\nendpoint: {}\n", port, endpoint);
 
     for request in server.incoming_requests() {
-        let remote_addr = match request.remote_addr() {
-            Some(addr) => addr.to_string(),
-            None => {
-                eprintln!("Could not get remote address");
-                continue;
-            }
+        let Some(remote_ip) = extract_ip(&request) else {
+            eprintln!("Could not get remote address");
+            continue;
         };
 
-        let remote_ip = remote_addr.parse::<SocketAddr>()
-            .map(|a| a.ip().to_string())
-            .unwrap_or_else(|_| remote_addr.clone());
+        let method  = request.method().as_str().to_string();
+        let version = request.http_version().to_string();
+        let url     = request.url().to_string();
+        let now     = now_str();
 
         if !config.security.is_ip_allowed(&remote_ip) {
-            let server_name = cow_str_to_str(&config.server.server_name, "sdHTTPp");
-            let resp = Response::new(
-                tiny_http::StatusCode(404),
-                vec![create_header("Server", server_name)],
-                "404 Not Found".as_bytes(),
-                None,
-                None
-            );
-            if let Err(e) = request.respond(resp) {
-                eprintln!("Failed to send response: {}", e);
-            }
+            log_request(&now, &remote_ip, &url, &method, &version, "blocked (IP not allowed)");
+            send_404(request, &server_name);
             continue;
         }
 
-        let method = request.method().as_str();
+        let visitor = visitors.entry(remote_ip.clone()).or_insert_with(Visitor::new);
+        visitor.visits.push(Visit { datetime: now.clone(), ip: remote_ip.clone(), endpoint: url.clone(), method: method.clone(), version: version.clone() });
+        let blocked = visitor.check(&config);
 
-        match visitors.get_mut(&remote_addr) {
-            Some(visitor) => {
-                visitor.visits.push(Visit {
-                    datetime: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-                    ip: remote_addr.clone(),
-                    endpoint: request.url().to_string(),
-                    method: method.to_string(),
-                    version: request.http_version().to_string()
-                });
-            },
-            None => {
-                let first_visit = Visit {
-                    datetime: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-                    ip: remote_addr.clone(),
-                    endpoint: request.url().to_string(),
-                    method: method.to_string(),
-                    version: request.http_version().to_string()
-                };
-                visitors.insert(remote_addr.clone(), Visitor {
-                    visits: vec![first_visit],
-                    blocked: false
-                });
-            }
-        }
+        log_request(&now, &remote_ip, &url, &method, &version, if blocked { "blocked" } else { "" });
 
-        let blocked = if let Some(visitor) = visitors.get_mut(&remote_addr) {
-            visitor.check(&config)
-        } else {
-            false
-        };
-
-        println!(r#"{color_green}Request{color_reset}
-{color_yellow}DateTime:{color_reset} {}
-{color_yellow}IP:{color_reset} {}
-{color_yellow}Endpoint:{color_reset} {}
-{color_yellow}Method:{color_reset} {}
-{color_yellow}Version:{color_reset} {}
-{}"#, 
-            chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
-            remote_addr, 
-            request.url(), 
-            method,
-            request.http_version(), 
-            if blocked { "blocked\r\n" } else { "" }
-        );
-
-        // if visitor blocked, respond with 404
-        if blocked 
-        || request.url() != format!("/{}", endpoint)
-        || !config.security.is_method_allowed(method)
-        {
-            let server_name = cow_str_to_str(&config.server.server_name, "sdHTTPp");
-            let resp = Response::new(
-                tiny_http::StatusCode(404),
-                vec![create_header("Server", server_name)],
-                "404 Not Found".as_bytes(),
-                None,
-                None
-            );
-            if let Err(e) = request.respond(resp) {
-                eprintln!("Failed to send response: {}", e);
-            }
+        if blocked || url != format!("/{}", endpoint) || !config.security.is_method_allowed(&method) {
+            send_404(request, &server_name);
             continue;
         }
 
         if !used.swap(true, Ordering::SeqCst) {
-            // First and only access - show the message
             println!("seen!");
-
-            let (content, content_type) = match &config.content.from_file {
-                Some(file_path) => match std::fs::read_to_string(file_path) {
-                    Ok(content) => (content, cow_str_to_str(&config.server.content_type, "text/plain")),
-                    Err(e) => {
-                        eprintln!("Failed to read file: {}", e);
-                        ("Error reading file".to_string(), "text/plain")
-                    }
-                },
-                None => (
-                    cow_str_to_str(&config.content.text, "No content").to_string(),
-                    cow_str_to_str(&config.server.content_type, "text/plain")
-                )
-            };
-            
-            let server_name = cow_str_to_str(&config.server.server_name, "sdHTTPp");
-            let resp = Response::new(
-                tiny_http::StatusCode(200),
-                vec![
-                    create_header("Content-Type", content_type),
-                    create_header("Server", server_name),
-                ],
-                content.as_bytes(),
-                Some(content.len()),
-                None
-            );
-            
-            if let Err(e) = request.respond(resp) {
-                eprintln!("Failed to send response: {}", e);
-            }
-            
+            serve_content(request, &config, &server_name);
             std::process::exit(0);
-        } else {
-            // For all other accesses, return error
-            if let Err(e) = request.respond(Response::from_string("nothing")) {
-                eprintln!("Failed to send response: {}", e);
-            }
+        } else if let Err(e) = request.respond(Response::from_string("nothing")) {
+            eprintln!("Failed to send response: {}", e);
         }
     }
-    
-    // This should never be reached
+
     std::process::exit(0);
 }
