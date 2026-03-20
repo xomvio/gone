@@ -188,7 +188,7 @@ pub fn load() -> Config {
         match fs::read_to_string(&args.config) {
             Ok(content) => content,
             Err(e) => {
-                eprintln!("Warning: Could not read {}: {}", args.config, e);
+                eprintln!("Warning: Could not read {}: {}\n Using default settings", args.config, e);
                 String::from(DEFAULT_CONFIG)
             }
         }
@@ -276,7 +276,7 @@ fn validate(config: &Config) {
 
     if let Some(path) = &config.content.from_file {
         if path.contains("..") {
-            eprintln!("Error: --from-file path must not contain '..'");
+            eprintln!("Error: --from-file path must not contain '..' for security reasons.");
             std::process::exit(1);
         }
         if !Path::new(path).exists() {

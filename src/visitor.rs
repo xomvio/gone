@@ -1,6 +1,6 @@
 use crate::config::Config;
 
-#[derive(Debug)]
+#[derive(Clone)]
 pub struct Visit {
     pub datetime: String,
     pub ip: String,

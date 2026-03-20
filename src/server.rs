@@ -12,10 +12,6 @@ use crate::{
     utils,
 };
 
-const COLOR_GREEN: &str = "\x1b[92m";
-const COLOR_RESET: &str = "\x1b[0m";
-const COLOR_YELLOW: &str = "\x1b[93m";
-
 fn cow_str_to_str<'a>(cow: &'a Option<std::borrow::Cow<'static, str>>, default: &'static str) -> &'a str {
     cow.as_deref().unwrap_or(default)
 }
@@ -45,26 +41,19 @@ fn extract_ip(request: &tiny_http::Request) -> Option<String> {
 }
 
 fn log_request(
-    now: &str, ip: &str, url: &str, method: &str, version: &str, status: &str,
-    log_file: &mut Option<BufWriter<File>>,
+    //now: &str, ip: &str, url: &str, method: &str, version: &str, status: &str,
+    visit: &Visit, status: &str, log_file: &mut Option<BufWriter<File>>
 ) {
-    let plain = format!(
-        "Request\nDateTime: {now}\nIP: {ip}\nEndpoint: {url}\nMethod: {method}\nVersion: {version}{}",
-        if status.is_empty() { String::new() } else { format!("\n{status}") }
+    let log = format!(
+        "Request\nDateTime: {}\nIP: {}\nEndpoint: {}\nMethod: {}\nVersion: {}\n{}",
+        visit.datetime, visit.ip, visit.endpoint, visit.method, visit.version,
+        if status.is_empty() { String::new() } else { format!("{status}\n") }
     );
 
-    println!(
-        "{COLOR_GREEN}Request{COLOR_RESET}\n\
-         {COLOR_YELLOW}DateTime:{COLOR_RESET} {now}\n\
-         {COLOR_YELLOW}IP:{COLOR_RESET} {ip}\n\
-         {COLOR_YELLOW}Endpoint:{COLOR_RESET} {url}\n\
-         {COLOR_YELLOW}Method:{COLOR_RESET} {method}\n\
-         {COLOR_YELLOW}Version:{COLOR_RESET} {version}{}",
-        if status.is_empty() { String::new() } else { format!("\n{status}") }
-    );
-
+    println!("{}", log);
+    
     if let Some(f) = log_file {
-        let _ = writeln!(f, "{}", plain);
+        let _ = writeln!(f, "{}", log);
     }
 }
 
@@ -116,8 +105,8 @@ fn serve_content(request: tiny_http::Request, config: &Config, server_name: &str
 
 pub fn run_server(config: Config) -> ! {
     let port = config.server.port.unwrap_or_else(utils::random_port);
-    let endpoint = config.server.endpoint.clone().unwrap_or_else(utils::random_endpoint);
-    let server_name = cow_str_to_str(&config.server.server_name, "sdHTTPp").to_string();
+    let expected_url = config.server.endpoint.clone().unwrap_or_else(utils::random_endpoint);
+    let server_name = cow_str_to_str(&config.server.server_name, "nginx").to_string();
 
     let mut log_file: Option<BufWriter<File>> = config.server.output.as_ref().map(|path| {
         OpenOptions::new().create(true).append(true).open(path)
@@ -133,40 +122,41 @@ pub fn run_server(config: Config) -> ! {
     });
 
     let mut visitors: HashMap<String, Visitor> = HashMap::new();
-    let expected_url = format!("/{}", endpoint);
 
-    println!("Server started\nport: {}\nendpoint: {}\n", port, endpoint);
+    println!("Server started\nport: {}\nendpoint: {}\n", port, expected_url);
 
     for request in server.incoming_requests() {
+
         let Some(remote_ip) = extract_ip(&request) else {
             eprintln!("Could not get remote address");
             continue;
         };
 
-        let method  = request.method().as_str().to_string();
-        let version = request.http_version().to_string();
-        let url     = request.url().to_string();
-        let now     = now_str();
+        let visit = Visit {
+            datetime: now_str(),
+            ip: remote_ip,
+            endpoint: request.url().to_string(),
+            method: request.method().to_string(),
+            version: request.http_version().to_string()
+        };
 
-        if !config.security.is_ip_allowed(&remote_ip) {
-            log_request(&now, &remote_ip, &url, &method, &version, "blocked (IP not allowed)", &mut log_file);
+        if !config.security.is_ip_allowed(&visit.ip) {
+            log_request(&visit, "blocked (IP not allowed)", &mut log_file);
             send_404(request, &server_name);
             continue;
         }
 
-        let visitor = visitors.entry(remote_ip.clone()).or_insert_with(Visitor::new);
-        visitor.visits.push(Visit {
-            datetime: now.clone(), ip: remote_ip.clone(),
-            endpoint: url.clone(), method: method.clone(), version: version.clone(),
-        });
+        let visitor = visitors.entry(visit.ip.to_owned()).or_insert_with(Visitor::new);
+        visitor.visits.push(visit.clone());
         let blocked = visitor.check(&config);
 
-        log_request(&now, &remote_ip, &url, &method, &version, if blocked { "blocked" } else { "" }, &mut log_file);
+        log_request(&visit, if blocked { "blocked" } else { "" }, &mut log_file);
 
-        if blocked || url != expected_url || !config.security.is_method_allowed(&method) {
+        if blocked || visit.endpoint.to_owned() != expected_url || !config.security.is_method_allowed(&visit.method) {
             send_404(request, &server_name);
             continue;
         }
+
 
         println!("seen!");
         if let Some(f) = &mut log_file {
