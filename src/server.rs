@@ -2,19 +2,13 @@ use std::io::{BufWriter, Write};
 use std::fs::{File, OpenOptions};
 use tiny_http::{Header, Response, Server};
 use std::collections::HashMap;
-use std::net::SocketAddr;
 use std::str::FromStr;
-use chrono;
-
+use crate::utils::cow_str_to_str;
 use crate::{
     config::Config,
     visitor::{Visitor, Visit},
     utils,
 };
-
-fn cow_str_to_str<'a>(cow: &'a Option<std::borrow::Cow<'static, str>>, default: &'static str) -> &'a str {
-    cow.as_deref().unwrap_or(default)
-}
 
 fn create_header(name: &str, value: &str) -> Header {
     let header_str = format!("{}: {}", name, value);
@@ -25,19 +19,6 @@ fn create_header(name: &str, value: &str) -> Header {
             std::process::exit(1);
         }
     }
-}
-
-fn now_str() -> String {
-    chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
-}
-
-fn extract_ip(request: &tiny_http::Request) -> Option<String> {
-    request.remote_addr().map(|addr| {
-        let s = addr.to_string();
-        s.parse::<SocketAddr>()
-            .map(|a| a.ip().to_string())
-            .unwrap_or(s)
-    })
 }
 
 fn log_request(visit: &Visit, status: &str, log_file: &mut Option<BufWriter<File>>) {
@@ -100,7 +81,7 @@ fn serve_content(request: tiny_http::Request, config: &Config, server_name: &str
     true
 }
 
-pub fn run_server(config: Config) -> ! {
+pub fn run(config: Config) -> ! {
     let port = config.server.port.unwrap_or_else(utils::random_port);
     let endpoint = config.server.endpoint.clone().unwrap_or_else(utils::random_endpoint);
     let expected_url = format!("/{}", endpoint);
@@ -125,13 +106,13 @@ pub fn run_server(config: Config) -> ! {
 
     for request in server.incoming_requests() {
 
-        let Some(remote_ip) = extract_ip(&request) else {
+        let Some(remote_ip) = utils::extract_ip(&request) else {
             eprintln!("Could not get remote address");
             continue;
         };
 
         let visit = Visit {
-            datetime: now_str(),
+            datetime: utils::now_str(),
             ip: remote_ip,
             endpoint: request.url().to_string(),
             method: request.method().to_string(),
@@ -150,7 +131,7 @@ pub fn run_server(config: Config) -> ! {
 
         log_request(&visit, if blocked { "blocked" } else { "" }, &mut log_file);
 
-        if blocked || visit.endpoint.to_owned() != expected_url || !config.security.is_method_allowed(&visit.method) {
+        if blocked || visit.endpoint != expected_url || !config.security.is_method_allowed(&visit.method) {
             send_404(request, &server_name);
             continue;
         }

@@ -5,5 +5,5 @@ mod utils;
 
 fn main() {
     let config = config::load();
-    server::run_server(config);
+    server::run(config);
 }
