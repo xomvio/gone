@@ -227,7 +227,7 @@ pub fn load() -> Config {
         config.content.text = Some(Cow::Owned(text));
     }
     if let Some(endpoint) = args.endpoint {
-        config.server.endpoint = Some(endpoint);
+        config.server.endpoint = Some(endpoint.trim_start_matches('/').to_string());
     }
     if let Some(output) = args.output {
         config.server.output = Some(output);
@@ -243,6 +243,12 @@ pub fn load() -> Config {
     }
     if let Some(whitelist) = args.whitelist {
         config.security.whitelist = Some(whitelist);
+    }
+
+    // Normalize endpoint: strip leading '/' if present
+    // Server adds it later
+    if let Some(endpoint) = &mut config.server.endpoint {
+        *endpoint = endpoint.trim_start_matches('/').to_string();
     }
 
     validate(&config);
@@ -264,12 +270,6 @@ fn validate(config: &Config) {
         }
     }
 
-    if let Some(endpoint) = &config.server.endpoint {
-        if !endpoint.starts_with('/') {
-            eprintln!("Error: Endpoint must start with '/'");
-            std::process::exit(1);
-        }
-    }
 
     validate_ip_list("blacklist", config.security.blacklist.as_deref().unwrap_or(&[]));
     validate_ip_list("whitelist", config.security.whitelist.as_deref().unwrap_or(&[]));

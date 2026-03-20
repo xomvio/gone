@@ -40,10 +40,7 @@ fn extract_ip(request: &tiny_http::Request) -> Option<String> {
     })
 }
 
-fn log_request(
-    //now: &str, ip: &str, url: &str, method: &str, version: &str, status: &str,
-    visit: &Visit, status: &str, log_file: &mut Option<BufWriter<File>>
-) {
+fn log_request(visit: &Visit, status: &str, log_file: &mut Option<BufWriter<File>>) {
     let log = format!(
         "Request\nDateTime: {}\nIP: {}\nEndpoint: {}\nMethod: {}\nVersion: {}\n{}",
         visit.datetime, visit.ip, visit.endpoint, visit.method, visit.version,
@@ -105,7 +102,8 @@ fn serve_content(request: tiny_http::Request, config: &Config, server_name: &str
 
 pub fn run_server(config: Config) -> ! {
     let port = config.server.port.unwrap_or_else(utils::random_port);
-    let expected_url = config.server.endpoint.clone().unwrap_or_else(utils::random_endpoint);
+    let endpoint = config.server.endpoint.clone().unwrap_or_else(utils::random_endpoint);
+    let expected_url = format!("/{}", endpoint);
     let server_name = cow_str_to_str(&config.server.server_name, "nginx").to_string();
 
     let mut log_file: Option<BufWriter<File>> = config.server.output.as_ref().map(|path| {
