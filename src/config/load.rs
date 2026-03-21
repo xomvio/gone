@@ -67,7 +67,10 @@ pub fn load() -> Result<Config, String> {
         config.server.insecure_http = Some(true);
     }
     if args.tor {
-        config.server.tor = Some(true);
+        #[cfg(not(feature = "tor"))]
+        return Err("This version of sdhttpp doesn't support built-in tor. build with 'cargo build --features tor' or download built-in tor version.".to_string());
+        #[cfg(feature = "tor")]
+        { config.server.tor = Some(true); }
     }
     if args.port_forwarded {
         config.server.port_forwarded = Some(true);

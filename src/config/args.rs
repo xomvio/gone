@@ -48,6 +48,7 @@ pub struct Args {
     pub insecure_http: bool,
 
     /// Route through Tor (starts an onion service via arti).
+    /// Requires building with `--features tor`.
     #[arg(long)]
     pub tor: bool,
 

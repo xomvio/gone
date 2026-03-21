@@ -12,6 +12,7 @@ use crate::{
 
 mod http;
 mod tls;
+#[cfg(feature = "tor")]
 mod tor;
 
 /// Maximum time to wait for a complete HTTP request (slowloris protection).
@@ -72,6 +73,7 @@ pub(crate) fn handle_connection<S: Read + Write>(
 }
 
 pub fn run(config: Config) -> Result<(), String> {
+    #[cfg(feature = "tor")]
     if config.server.tor.unwrap_or(false) {
         return tor::run(config);
     }
