@@ -25,11 +25,6 @@ pub fn now_str() -> String {
     chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
 }
 
-pub fn cow_str_to_str<'a>(cow: &'a Option<std::borrow::Cow<'static, str>>, default: &'static str) -> &'a str {
-    cow.as_deref().unwrap_or(default)
-}
-
-
 /// Reads raw HTTP request bytes until `\r\n\r\n` is found (end of headers).
 /// Returns None on connection close or if the request exceeds 16 KB.
 pub fn read_request<R: Read>(stream: &mut R) -> Option<String> {
@@ -52,14 +47,15 @@ pub fn read_request<R: Read>(stream: &mut R) -> Option<String> {
 }
 
 
-pub fn open_log_file(config: &Config) -> Option<BufWriter<File>> {
-    config.server.output.as_ref().map(|path| {
-        OpenOptions::new().create(true).append(true).open(path)
-            .unwrap_or_else(|e| {
-                eprintln!("Failed to open log file '{}': {}", path, e);
-                std::process::exit(1);
-            })
-    }).map(BufWriter::new)
+pub fn open_log_file(config: &Config) -> Result<Option<BufWriter<File>>, String> {
+    match &config.server.output {
+        Some(path) => {
+            let file = OpenOptions::new().create(true).append(true).open(path)
+                .map_err(|e| format!("Failed to open log file '{}': {}", path, e))?;
+            Ok(Some(BufWriter::new(file)))
+        }
+        None => Ok(None),
+    }
 }
 
 pub fn log_request(visit: &Visit, status: &str, log_file: &mut Option<BufWriter<File>>) {

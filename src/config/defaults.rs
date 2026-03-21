@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use crate::config::{Config, ContentConfig, SecurityConfig, ServerConfig};
 
 
@@ -17,8 +15,8 @@ impl Default for ServerConfig {
     fn default() -> Self {
         Self {
             port: None,
-            content_type: Some(Cow::Borrowed("text/plain")),
-            server_name: Some(Cow::Borrowed("nginx")),
+            content_type: Some("text/plain".to_string()),
+            server_name: Some("nginx".to_string()),
             endpoint: None,
             output: None,
             insecure_http: None,
@@ -33,7 +31,7 @@ impl Default for ServerConfig {
 impl Default for ContentConfig {
     fn default() -> Self {
         Self {
-            text: Some(Cow::Borrowed("This is a secret message that will be shown once.")),
+            text: Some("This is a secret message that will be shown once.".to_string()),
             from_file: None,
         }
     }
@@ -42,7 +40,6 @@ impl Default for ContentConfig {
 impl Default for SecurityConfig {
     fn default() -> Self {
         Self {
-            max_visits: Some(3),
             allowed_methods: Some(vec!["GET".to_string()]),
             blacklist: Some(Vec::new()),
             whitelist: Some(Vec::new()),

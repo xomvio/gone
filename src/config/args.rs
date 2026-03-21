@@ -31,10 +31,6 @@ pub struct Args {
     #[arg(long, value_name = "FILE")]
     pub output: Option<String>,
 
-    /// Maximum number of visits per IP (0 for unlimited)
-    #[arg(long, value_name = "COUNT")]
-    pub max_visits: Option<u32>,
-
     /// Allowed HTTP methods, comma-separated (e.g., GET,POST)
     #[arg(long, value_name = "METHODS", value_delimiter = ',')]
     pub allowed_methods: Option<Vec<String>>,

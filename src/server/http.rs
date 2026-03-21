@@ -2,7 +2,6 @@ use std::fs::File;
 use std::io::Write;
 
 use crate::config::Config;
-use crate::utils::cow_str_to_str;
 
 /// Parses the HTTP request line. Returns (method, url, version) or None on malformed input.
 /// Example: "GET /endpoint HTTP/1.1\r\nHost: ..." → ("GET", "/endpoint", "HTTP/1.1")
@@ -31,7 +30,7 @@ pub fn send_404<W: Write>(stream: &mut W, server_name: &str) {
 /// Uses `std::io::copy` for file content — no full-file buffering, binary-safe.
 /// Returns true on success, false on any read/write error.
 pub fn serve_content<W: Write>(stream: &mut W, config: &Config, server_name: &str) -> bool {
-    let content_type = cow_str_to_str(&config.server.content_type, "text/plain");
+    let content_type = config.server.content_type.as_deref().unwrap_or("text/plain");
 
     match &config.content.from_file {
         Some(path) => {
@@ -58,7 +57,7 @@ pub fn serve_content<W: Write>(stream: &mut W, config: &Config, server_name: &st
             std::io::copy(&mut file, stream).is_ok()
         }
         None => {
-            let text = cow_str_to_str(&config.content.text, "No content");
+            let text = config.content.text.as_deref().unwrap_or("No content");
             let header = format!(
                 "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nServer: {server_name}\r\nConnection: close\r\nContent-Length: {}\r\n\r\n",
                 text.len()

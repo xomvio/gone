@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 
@@ -11,67 +10,49 @@ use tokio_util::io::SyncIoBridge;
 use tor_cell::relaycell::msg::Connected;
 use tor_hsservice::handle_rend_requests;
 
-use crate::{config::Config, utils, visitor::Visitor};
+use crate::{config::Config, utils};
 
 use super::{handle_connection, HandleResult};
 
-pub fn run(config: Config) -> ! {
+pub fn run(config: Config) -> Result<(), String> {
     let rt = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
         .enable_all()
         .build()
-        .unwrap_or_else(|e| {
-            eprintln!("Failed to create tokio runtime: {}", e);
-            std::process::exit(1);
-        });
+        .map_err(|e| format!("Failed to create tokio runtime: {}", e))?;
 
-    let exit_code = rt.block_on(run_async(config));
+    let result = rt.block_on(run_async(config));
 
     // Gracefully shut down the runtime so Tor circuit tasks can finish
     // delivering buffered data before the process exits.
     rt.shutdown_timeout(std::time::Duration::from_secs(10));
-    std::process::exit(exit_code);
+    result
 }
 
-async fn run_async(config: Config) -> i32 {
+async fn run_async(config: Config) -> Result<(), String> {
     let endpoint = config.server.endpoint.clone().unwrap_or_else(utils::random_endpoint);
     let expected_url = format!("/{}", endpoint);
-    let server_name = utils::cow_str_to_str(&config.server.server_name, "nginx").to_string();
-    let mut log_file: Option<BufWriter<File>> = utils::open_log_file(&config);
-    let mut visitors: HashMap<String, Visitor> = HashMap::new();
+    let server_name = config.server.server_name.as_deref().unwrap_or("nginx").to_string();
+    let mut log_file: Option<BufWriter<File>> = utils::open_log_file(&config)?;
 
     println!("Bootstrapping Tor... (this may take a moment)");
 
     let tor_client = TorClient::create_bootstrapped(TorClientConfig::default())
         .await
-        .unwrap_or_else(|e| {
-            eprintln!("Failed to bootstrap Tor: {}", e);
-            std::process::exit(1);
-        });
+        .map_err(|e| format!("Failed to bootstrap Tor: {}", e))?;
 
     let svc_config = OnionServiceConfigBuilder::default()
         .nickname(
-            "sdhttpp".parse().unwrap_or_else(|e| {
-                eprintln!("Failed to parse nickname: {}", e);
-                std::process::exit(1);
-            }),
+            "sdhttpp".parse()
+                .map_err(|e| format!("Failed to parse nickname: {}", e))?,
         )
         .build()
-        .unwrap_or_else(|e| {
-            eprintln!("Failed to build onion service config: {}", e);
-            std::process::exit(1);
-        });
+        .map_err(|e| format!("Failed to build onion service config: {}", e))?;
 
     let (onion_service, rend_requests) = tor_client
         .launch_onion_service(svc_config)
-        .unwrap_or_else(|e| {
-            eprintln!("Failed to launch onion service: {}", e);
-            std::process::exit(1);
-        })
-        .unwrap_or_else(|| {
-            eprintln!("Onion service unavailable (no keystore configured?)");
-            std::process::exit(1);
-        });
+        .map_err(|e| format!("Failed to launch onion service: {}", e))?
+        .ok_or_else(|| "Onion service unavailable (no keystore configured?)".to_string())?;
 
     // Wait until the onion address is available
     let onion_addr = loop {
@@ -92,10 +73,7 @@ async fn run_async(config: Config) -> i32 {
     loop {
         let stream_req = match stream_requests.next().await {
             Some(s) => s,
-            None => {
-                eprintln!("Onion service stream ended unexpectedly");
-                return 1;
-            }
+            None => return Err("Onion service stream ended unexpectedly".to_string()),
         };
 
         let data_stream = match stream_req.accept(Connected::new_empty()).await {
@@ -106,6 +84,10 @@ async fn run_async(config: Config) -> i32 {
             }
         };
 
+        // No explicit read timeout for Tor: the onion address is secret,
+        // Tor circuits have their own timeouts, and SyncIoBridge cannot be
+        // cancelled from outside a blocking context.
+        //
         // Bridge async stream → sync Read+Write for handle_connection
         let (result, mut data_stream) = tokio::task::block_in_place(|| {
             let mut sync_stream = SyncIoBridge::new(data_stream);
@@ -115,7 +97,6 @@ async fn run_async(config: Config) -> i32 {
                 &expected_url,
                 &server_name,
                 &config,
-                &mut visitors,
                 &mut log_file,
             );
             (result, sync_stream.into_inner())
@@ -132,9 +113,13 @@ async fn run_async(config: Config) -> i32 {
                 // Keep tor_client alive while Tor relays deliver the data
                 // Also sleep for a random seconds to mitigate correlation attacks
                 let sleep_secs = rand::random_range(5..60);
-                println!("sending data...\nAlso waiting for {} (random) seconds before shutdown server to avoid correlation attacks.",sleep_secs);
+                println!("sending data...\nAlso waiting for {} (random) seconds before shutdown server to avoid correlation attacks.", sleep_secs);
                 tokio::time::sleep(tokio::time::Duration::from_secs(sleep_secs)).await;
-                return if matches!(result, HandleResult::Served) { 0 } else { 1 };
+                return if matches!(result, HandleResult::Served) {
+                    Ok(())
+                } else {
+                    Err("Failed to serve content".to_string())
+                };
             }
         }
     }

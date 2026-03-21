@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 const DEFAULT_CONFIG: &str = include_str!("../../default-config.toml");
 
 mod load;
@@ -6,12 +5,12 @@ mod args;
 mod validate;
 mod defaults;
 
-pub fn load() -> Config {
+pub fn load() -> Result<Config, String> {
     load::load()
 }
 
-pub fn validate(config: &Config) {
-    validate::validate(config);
+pub fn validate(config: &Config) -> Result<(), String> {
+    validate::validate(config)
 }
 
 #[derive(serde::Deserialize, Clone, Debug)]
@@ -27,8 +26,8 @@ pub struct Config {
 #[derive(serde::Deserialize, Clone, Debug)]
 pub struct ServerConfig {
     pub port: Option<u16>,
-    pub content_type: Option<Cow<'static, str>>,
-    pub server_name: Option<Cow<'static, str>>,
+    pub content_type: Option<String>,
+    pub server_name: Option<String>,
     pub endpoint: Option<String>,
     pub output: Option<String>,
     pub insecure_http: Option<bool>,
@@ -40,14 +39,12 @@ pub struct ServerConfig {
 
 #[derive(serde::Deserialize, Clone, Debug)]
 pub struct ContentConfig {
-    pub text: Option<Cow<'static, str>>,
+    pub text: Option<String>,
     pub from_file: Option<String>,
 }
 
 #[derive(serde::Deserialize, Clone, Debug)]
 pub struct SecurityConfig {
-    /// Maximum number of visits per IP (0 = unlimited)
-    pub max_visits: Option<u32>,
     pub allowed_methods: Option<Vec<String>>,
     pub blacklist: Option<Vec<String>>,
     pub whitelist: Option<Vec<String>>,

@@ -45,10 +45,6 @@ text = "This is a secret message that will be shown once."
 # from_file = "/path/to/your/secret_file.txt"
 
 [security]
-# Maximum number of visits allowed per IP address before blocking
-# Set to 0 for unlimited visits
-max_visits = 5
-
 # Allowed HTTP methods (visits with other methods will be blocked)
 # Common methods: GET, POST, HEAD, PUT, DELETE, etc.
 allowed_methods = ["GET"]

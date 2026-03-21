@@ -1,17 +1,15 @@
-use std::{borrow::Cow, fs, path::Path};
+use std::{fs, path::Path};
 use clap::Parser;
 use toml;
 
 use crate::config::{Config, DEFAULT_CONFIG, args::Args, validate};
 
-pub fn load() -> Config {
+pub fn load() -> Result<Config, String> {
     let args = Args::parse();
 
     if args.generate_config {
-        if let Err(e) = fs::write("config.toml", DEFAULT_CONFIG) {
-            eprintln!("Failed to generate config file: {}", e);
-            std::process::exit(1);
-        }
+        fs::write("config.toml", DEFAULT_CONFIG)
+            .map_err(|e| format!("Failed to generate config file: {}", e))?;
         println!("Configuration file 'config.toml' created successfully.");
         std::process::exit(0);
     }
@@ -28,44 +26,33 @@ pub fn load() -> Config {
         String::from(DEFAULT_CONFIG)
     };
 
-    let mut config: Config = match toml::from_str(&config_content) {
-        Ok(cfg) => cfg,
-        Err(e) => {
-            eprintln!("Error parsing config file: {}", e);
-            std::process::exit(1);
-        }
-    };
+    let mut config: Config = toml::from_str(&config_content)
+        .map_err(|e| format!("Error parsing config file: {}", e))?;
 
     // Override with command line arguments
     if let Some(port_str) = args.port {
-        config.server.port = Some(match port_str.parse::<u16>() {
-            Ok(p) => p,
-            Err(_) => {
-                eprintln!("Error: Invalid port number '{}'", port_str);
-                std::process::exit(1);
-            }
-        });
+        config.server.port = Some(
+            port_str.parse::<u16>()
+                .map_err(|_| format!("Invalid port number '{}'", port_str))?
+        );
     }
     if let Some(content_type) = args.content_type {
-        config.server.content_type = Some(Cow::Owned(content_type));
+        config.server.content_type = Some(content_type);
     }
     if let Some(server_name) = args.server_name {
-        config.server.server_name = Some(Cow::Owned(server_name));
+        config.server.server_name = Some(server_name);
     }
     if let Some(from_file) = args.from_file {
         config.content.from_file = Some(from_file);
     }
     if let Some(text) = args.text {
-        config.content.text = Some(Cow::Owned(text));
+        config.content.text = Some(text);
     }
     if let Some(endpoint) = args.endpoint {
         config.server.endpoint = Some(endpoint.trim_start_matches('/').to_string());
     }
     if let Some(output) = args.output {
         config.server.output = Some(output);
-    }
-    if let Some(max_visits) = args.max_visits {
-        config.security.max_visits = Some(max_visits);
     }
     if let Some(allowed_methods) = args.allowed_methods {
         config.security.allowed_methods = Some(allowed_methods);
@@ -98,6 +85,6 @@ pub fn load() -> Config {
         *endpoint = endpoint.trim_start_matches('/').to_string();
     }
 
-    validate(&config);
-    config
+    validate(&config)?;
+    Ok(config)
 }
