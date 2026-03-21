@@ -30,6 +30,25 @@ pub fn validate(config: &Config) {
             std::process::exit(1);
         }
     }
+
+    let has_cert = config.server.cert_path.is_some();
+    let has_key  = config.server.key_path.is_some();
+    if has_cert != has_key {
+        eprintln!("Error: --cert-path and --key-path must be provided together.");
+        std::process::exit(1);
+    }
+    for (name, path_opt) in [("cert-path", &config.server.cert_path), ("key-path", &config.server.key_path)] {
+        if let Some(path) = path_opt {
+            if path.contains("..") {
+                eprintln!("Error: --{name} must not contain '..'");
+                std::process::exit(1);
+            }
+            if !Path::new(path).exists() {
+                eprintln!("Error: File not found for --{name}: '{path}'");
+                std::process::exit(1);
+            }
+        }
+    }
 }
 
 fn validate_ip_list(list_name: &str, ips: &[String]) {

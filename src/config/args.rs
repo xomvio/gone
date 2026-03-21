@@ -47,6 +47,18 @@ pub struct Args {
     #[arg(long, value_name = "IPS", value_delimiter = ',')]
     pub whitelist: Option<Vec<String>>,
 
+    /// Enable HTTPS (TLS). Self-signed cert is auto-generated if --cert-path/--key-path not provided.
+    #[arg(long)]
+    pub https: bool,
+
+    /// Path to TLS certificate file (PEM format). Requires --key-path.
+    #[arg(long, value_name = "FILE")]
+    pub cert_path: Option<String>,
+
+    /// Path to TLS private key file (PEM format). Requires --cert-path.
+    #[arg(long, value_name = "FILE")]
+    pub key_path: Option<String>,
+
     /// Generate a default config file and exit
     #[arg(long)]
     pub generate_config: bool,
