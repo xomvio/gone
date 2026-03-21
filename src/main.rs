@@ -5,9 +5,8 @@ mod visitor;
 mod utils;
 
 fn main() {
-    // When built with the `tor` feature, arti pulls in aws-lc-rs which conflicts
-    // with ring at runtime. Explicitly install ring as the default provider.
-    #[cfg(feature = "tor")]
+    // When built with the `tor` feature, arti pulls in aws-lc-rs and sha2 pulls another one which conflicts
+    // make ring as the default provider.
     rustls::crypto::ring::default_provider()
         .install_default()
         .expect("Failed to install rustls crypto provider");

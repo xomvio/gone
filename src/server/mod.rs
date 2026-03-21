@@ -105,10 +105,19 @@ pub fn run(config: Config) -> Result<(), String> {
     let local_addr = listener.local_addr()
         .map_err(|e| format!("Failed to get local address: {}", e))?;
 
+    let hash = match &config.content.from_file {
+        Some(path) => utils::sha256_file(path).unwrap_or_else(|| "hash error".to_string()),
+        None => {
+            let text = config.content.text.as_deref().unwrap_or("No content");
+            utils::sha256_text(text)
+        }
+    };
+    
     println!(
-        "Server started\nport: {}\nendpoint: {}\n{}",
+        "Server started\nport: {}\nendpoint: {}\nHash: {}\n{}",
         port,
         expected_url,
+        hash,
         if !insecure_http { "https: true\n" } else { "https: FALSE" }
     );
 

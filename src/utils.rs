@@ -74,7 +74,7 @@ pub fn log_request(visit: &Visit, status: &str, log_file: &mut Option<BufWriter<
     }
 }
 
-/// Compute SHA-256 hash of a file by streaming in chunks (O(1) memory).
+// Generate SHA-256 hash for a file by streaming in chunks (for big files)
 pub fn sha256_file(path: &str) -> Option<String> {
     let mut file = File::open(path).ok()?;
     let mut hasher = Sha256::new();
