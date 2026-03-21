@@ -51,6 +51,10 @@ pub struct Args {
     #[arg(long)]
     pub insecure_http: bool,
 
+    /// Route through Tor (starts an onion service via arti).
+    #[arg(long)]
+    pub tor: bool,
+
     /// Path to TLS certificate file (PEM format). Requires --key-path.
     #[arg(long, value_name = "FILE")]
     pub cert_path: Option<String>,

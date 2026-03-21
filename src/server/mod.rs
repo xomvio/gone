@@ -12,14 +12,15 @@ use crate::{
 
 mod http;
 mod tls;
+mod tor;
 
-enum HandleResult {
+pub(crate) enum HandleResult {
     Continue,
     Served,
     ServeError,
 }
 
-fn handle_connection<S: Read + Write>(
+pub(crate) fn handle_connection<S: Read + Write>(
     stream: &mut S,
     ip: String,
     expected_url: &str,
@@ -45,20 +46,24 @@ fn handle_connection<S: Read + Write>(
         version,
     };
 
-    if !config.security.is_ip_allowed(&visit.ip) {
+    let tor_mode = config.server.tor.unwrap_or(false);
+
+    if !tor_mode && !config.security.is_ip_allowed(&visit.ip) {
         utils::log_request(&visit, "blocked (IP not allowed)", log_file);
         http::send_404(stream, server_name);
+        let _ = stream.flush();
         return HandleResult::Continue;
     }
 
     let visitor = visitors.entry(visit.ip.clone()).or_insert_with(Visitor::new);
     visitor.visits.push(visit.clone());
-    let blocked = visitor.check(config);
+    let blocked = !tor_mode && visitor.check(config);
 
     utils::log_request(&visit, if blocked { "blocked" } else { "" }, log_file);
 
     if blocked || visit.endpoint != expected_url || !config.security.is_method_allowed(&visit.method) {
         http::send_404(stream, server_name);
+        let _ = stream.flush();
         return HandleResult::Continue;
     }
 
@@ -69,6 +74,9 @@ fn handle_connection<S: Read + Write>(
 }
 
 pub fn run(config: Config) -> ! {
+    if config.server.tor.unwrap_or(false) {
+        return tor::run(config);
+    }
     let port = config.server.port.unwrap_or_else(utils::random_port);
     let endpoint = config.server.endpoint.clone().unwrap_or_else(utils::random_endpoint);
     let expected_url = format!("/{}", endpoint);

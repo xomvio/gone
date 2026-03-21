@@ -79,6 +79,9 @@ pub fn load() -> Config {
     if args.insecure_http {
         config.server.insecure_http = Some(true);
     }
+    if args.tor {
+        config.server.tor = Some(true);
+    }
     if let Some(cert_path) = args.cert_path {
         config.server.cert_path = Some(cert_path);
     }

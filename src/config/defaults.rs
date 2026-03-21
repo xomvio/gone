@@ -22,6 +22,7 @@ impl Default for ServerConfig {
             endpoint: None,
             output: None,
             insecure_http: None,
+            tor: None,
             cert_path: None,
             key_path: None,
         }

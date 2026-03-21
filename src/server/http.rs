@@ -20,7 +20,7 @@ pub fn send_404<W: Write>(stream: &mut W, server_name: &str) {
     let body = b"404 Not Found";
     let _ = write!(
         stream,
-        "HTTP/1.1 404 Not Found\r\nServer: {server_name}\r\nContent-Length: {}\r\n\r\n",
+        "HTTP/1.1 404 Not Found\r\nServer: {server_name}\r\nConnection: close\r\nContent-Length: {}\r\n\r\n",
         body.len()
     );
     let _ = stream.write_all(body);
@@ -50,7 +50,7 @@ pub fn serve_content<W: Write>(stream: &mut W, config: &Config, server_name: &st
                 }
             };
             let header = format!(
-                "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nServer: {server_name}\r\nContent-Length: {size}\r\n\r\n"
+                "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nServer: {server_name}\r\nConnection: close\r\nContent-Length: {size}\r\n\r\n"
             );
             if stream.write_all(header.as_bytes()).is_err() {
                 return false;
@@ -60,7 +60,7 @@ pub fn serve_content<W: Write>(stream: &mut W, config: &Config, server_name: &st
         None => {
             let text = cow_str_to_str(&config.content.text, "No content");
             let header = format!(
-                "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nServer: {server_name}\r\nContent-Length: {}\r\n\r\n",
+                "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nServer: {server_name}\r\nConnection: close\r\nContent-Length: {}\r\n\r\n",
                 text.len()
             );
             if stream.write_all(header.as_bytes()).is_err() {

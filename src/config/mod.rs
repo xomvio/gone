@@ -32,6 +32,7 @@ pub struct ServerConfig {
     pub endpoint: Option<String>,
     pub output: Option<String>,
     pub insecure_http: Option<bool>,
+    pub tor: Option<bool>,
     pub cert_path: Option<String>,
     pub key_path: Option<String>,
 }
