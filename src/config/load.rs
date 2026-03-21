@@ -79,6 +79,9 @@ pub fn load() -> Result<Config, String> {
     if let Some(key_path) = args.key_path {
         config.server.key_path = Some(key_path);
     }
+    if args.quiet {
+        config.server.quiet = Some(true);
+    }
 
     // Normalize endpoint: strip leading '/' if present
     // Server adds it later

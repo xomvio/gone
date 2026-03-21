@@ -14,6 +14,7 @@ impl Default for ServerConfig {
             port_forwarded: None,
             cert_path: None,
             key_path: None,
+            quiet: None,
         }
     }
 }

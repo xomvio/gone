@@ -64,6 +64,10 @@ pub struct Args {
     #[arg(long, value_name = "FILE")]
     pub key_path: Option<String>,
 
+    /// Suppress request logging to stdout (server info and hash still shown)
+    #[arg(long)]
+    pub quiet: bool,
+
     /// Generate a default config file and exit
     #[arg(long)]
     pub generate_config: bool,

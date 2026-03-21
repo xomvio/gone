@@ -22,6 +22,9 @@ chrono = "0.4.41"
 serde = { version = "1.0", features = ["derive"] }
 toml = "0.8.23"
 
+# Hashing
+sha2 = "0.10"
+
 # TLS
 rustls = { version = "0.23", features = ["ring"] }
 rcgen = "0.13"

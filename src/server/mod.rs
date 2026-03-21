@@ -49,25 +49,38 @@ pub(crate) fn handle_connection<S: Read + Write>(
     };
 
     let tor_mode = config.server.tor.unwrap_or(false);
+    let quiet = config.server.quiet.unwrap_or(false);
 
     if !tor_mode && !config.security.is_ip_allowed(&visit.ip) {
-        { let mut lf = log_file.lock().unwrap(); utils::log_request(&visit, "blocked (IP not allowed)", &mut lf); }
+        { let mut lf = log_file.lock().unwrap(); utils::log_request(&visit, "blocked (IP not allowed)", &mut lf, quiet); }
         http::send_404(stream, server_name);
         let _ = stream.flush();
         return HandleResult::Continue;
     }
 
     if visit.endpoint != expected_url || !config.security.is_method_allowed(&visit.method) {
-        { let mut lf = log_file.lock().unwrap(); utils::log_request(&visit, "", &mut lf); }
+        { let mut lf = log_file.lock().unwrap(); utils::log_request(&visit, "", &mut lf, quiet); }
         http::send_404(stream, server_name);
         let _ = stream.flush();
         return HandleResult::Continue;
     }
 
-    { let mut lf = log_file.lock().unwrap(); utils::log_request(&visit, "", &mut lf); }
+    { let mut lf = log_file.lock().unwrap(); utils::log_request(&visit, "", &mut lf, quiet); }
     println!("seen!");
     let served = http::serve_content(stream, config, server_name);
     let _ = stream.flush();
+
+    if served {
+        let hash = match &config.content.from_file {
+            Some(path) => utils::sha256_file(path).unwrap_or_else(|| "hash error".to_string()),
+            None => {
+                let text = config.content.text.as_deref().unwrap_or("No content");
+                utils::sha256_text(text)
+            }
+        };
+        println!("SHA-256: {}", hash);
+    }
+
     if served { HandleResult::Served } else { HandleResult::ServeError }
 }
 

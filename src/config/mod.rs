@@ -35,6 +35,7 @@ pub struct ServerConfig {
     pub port_forwarded: Option<bool>,
     pub cert_path: Option<String>,
     pub key_path: Option<String>,
+    pub quiet: Option<bool>,
 }
 
 #[derive(serde::Deserialize, Clone, Debug)]

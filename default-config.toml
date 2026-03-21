@@ -27,6 +27,10 @@ server_name = "nginx"
 # If you have another security layer (eg. Tor or SSL when port-forwarding), you may set this true to disable SSL
 insecure_http = false
 
+# Suppress request logging to stdout
+# Server startup info and SHA-256 hash are always shown
+# quiet = false
+
 # Certificate path for SSL
 # You can't use '../' for security reasons
 # cert_path = "path/to/cert"
