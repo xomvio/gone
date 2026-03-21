@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::Write;
 
-use crate::config::Config;
+use crate::{config::Config, constants};
 
 /// Parses the HTTP request line. Returns (method, url, version) or None on malformed input.
 /// Example: "GET /endpoint HTTP/1.1\r\nHost: ..." → ("GET", "/endpoint", "HTTP/1.1")
@@ -30,7 +30,7 @@ pub fn send_404<W: Write>(stream: &mut W, server_name: &str) {
 /// Uses `std::io::copy` for file content — no full-file buffering, binary-safe.
 /// Returns true on success, false on any read/write error.
 pub fn serve_content<W: Write>(stream: &mut W, config: &Config, server_name: &str) -> bool {
-    let content_type = config.server.content_type.as_deref().unwrap_or("text/plain");
+    let content_type = config.server.content_type.as_deref().unwrap_or(constants::DEFAULT_CONTENT_TYPE);
 
     match &config.content.from_file {
         Some(path) => {

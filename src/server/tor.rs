@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::{BufWriter, Write};
+use std::sync::Mutex;
 
 use arti_client::config::onion_service::OnionServiceConfigBuilder;
 use arti_client::{TorClient, TorClientConfig};
@@ -10,7 +11,7 @@ use tokio_util::io::SyncIoBridge;
 use tor_cell::relaycell::msg::Connected;
 use tor_hsservice::handle_rend_requests;
 
-use crate::{config::Config, utils};
+use crate::{config::Config, constants, utils};
 
 use super::{handle_connection, HandleResult};
 
@@ -32,8 +33,8 @@ pub fn run(config: Config) -> Result<(), String> {
 async fn run_async(config: Config) -> Result<(), String> {
     let endpoint = config.server.endpoint.clone().unwrap_or_else(utils::random_endpoint);
     let expected_url = format!("/{}", endpoint);
-    let server_name = config.server.server_name.as_deref().unwrap_or("nginx").to_string();
-    let mut log_file: Option<BufWriter<File>> = utils::open_log_file(&config)?;
+    let server_name = config.server.server_name.as_deref().unwrap_or(constants::DEFAULT_SERVER_NAME).to_string();
+    let log_file: Mutex<Option<BufWriter<File>>> = Mutex::new(utils::open_log_file(&config)?);
 
     println!("Bootstrapping Tor... (this may take a moment)");
 
@@ -97,7 +98,7 @@ async fn run_async(config: Config) -> Result<(), String> {
                 &expected_url,
                 &server_name,
                 &config,
-                &mut log_file,
+                &log_file,
             );
             (result, sync_stream.into_inner())
         });
@@ -109,7 +110,10 @@ async fn run_async(config: Config) -> Result<(), String> {
         match result {
             HandleResult::Continue => continue,
             HandleResult::Served | HandleResult::ServeError => {
-                if let Some(f) = &mut log_file { let _ = f.flush(); }
+                if let Ok(mut lf) = log_file.lock() && let Some(f) = lf.as_mut() {
+                    let _ = f.flush(); 
+                }
+                
                 // Keep tor_client alive while Tor relays deliver the data
                 // Also sleep for a random seconds to mitigate correlation attacks
                 let sleep_secs = rand::random_range(5..60);

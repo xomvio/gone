@@ -1,11 +1,12 @@
 use crate::config::{ContentConfig, SecurityConfig, ServerConfig};
+use crate::constants;
 
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
             port: None,
-            content_type: Some("text/plain".to_string()),
-            server_name: Some("nginx".to_string()),
+            content_type: Some(constants::DEFAULT_CONTENT_TYPE.to_string()),
+            server_name: Some(constants::DEFAULT_SERVER_NAME.to_string()),
             endpoint: None,
             output: None,
             insecure_http: None,

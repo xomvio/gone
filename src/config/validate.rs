@@ -1,6 +1,7 @@
 use std::{net::{Ipv4Addr, Ipv6Addr}, path::Path};
 
 use crate::config::Config;
+use crate::constants;
 
 
 pub fn validate(config: &Config) -> Result<(), String> {
@@ -8,10 +9,8 @@ pub fn validate(config: &Config) -> Result<(), String> {
         return Err("You must specify either --from-file or --text".to_string());
     }
 
-    if let Some(port) = config.server.port
-        && port < 1024
-    {
-        return Err(format!("Invalid port number '{}' (must be 1024-65535)", port));
+    if let Some(port) = config.server.port && port < constants::MIN_PORT {
+        return Err(format!("Invalid port number '{}' (must be {}-65535)", port, constants::MIN_PORT));
     }
 
     validate_ip_list("blacklist", config.security.blacklist.as_deref().unwrap_or(&[]))?;

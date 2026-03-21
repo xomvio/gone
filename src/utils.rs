@@ -3,12 +3,13 @@ use std::io::{BufWriter, Read, Write};
 use rand::distr::Alphanumeric;
 use rand::Rng;
 use crate::config::Config;
+use crate::constants;
 use crate::visitor::Visit;
 
 
 pub fn random_port() -> u16 {
     let mut rng = rand::rng();
-    rng.random_range(1024..=65535)
+    rng.random_range(constants::MIN_PORT..=65535)
 }
 
 pub fn random_endpoint() -> String {
@@ -37,7 +38,7 @@ pub fn read_request<R: Read>(stream: &mut R) -> Option<String> {
         if buf.windows(4).any(|w| w == b"\r\n\r\n") {
             break;
         }
-        if buf.len() > 16_384 {
+        if buf.len() > constants::MAX_REQUEST_SIZE {
             return None;
         }
     }
