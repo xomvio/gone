@@ -14,13 +14,15 @@ pub fn make_tls_config(config: &Config) -> Arc<rustls::ServerConfig> {
         _ => generate_self_signed(),
     };
 
-    let tls_config = rustls::ServerConfig::builder()
+    let mut tls_config = rustls::ServerConfig::builder()
         .with_no_client_auth()
         .with_single_cert(certs, key)
         .unwrap_or_else(|e| {
             eprintln!("Failed to build TLS config: {}", e);
             std::process::exit(1);
         });
+
+    tls_config.alpn_protocols = vec![b"http/1.1".to_vec()];
 
     Arc::new(tls_config)
 }

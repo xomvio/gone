@@ -76,8 +76,8 @@ pub fn load() -> Config {
     if let Some(whitelist) = args.whitelist {
         config.security.whitelist = Some(whitelist);
     }
-    if args.https {
-        config.server.https = Some(true);
+    if args.insecure_http {
+        config.server.insecure_http = Some(true);
     }
     if let Some(cert_path) = args.cert_path {
         config.server.cert_path = Some(cert_path);

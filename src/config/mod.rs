@@ -31,7 +31,7 @@ pub struct ServerConfig {
     pub server_name: Option<Cow<'static, str>>,
     pub endpoint: Option<String>,
     pub output: Option<String>,
-    pub https: Option<bool>,
+    pub insecure_http: Option<bool>,
     pub cert_path: Option<String>,
     pub key_path: Option<String>,
 }

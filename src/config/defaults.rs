@@ -21,7 +21,7 @@ impl Default for ServerConfig {
             server_name: Some(Cow::Borrowed("nginx")),
             endpoint: None,
             output: None,
-            https: None,
+            insecure_http: None,
             cert_path: None,
             key_path: None,
         }

@@ -22,6 +22,19 @@ server_name = "nginx"
 # If not set, logs will only go to stdout
 # output = "sdhttpp.log"
 
+# HTTPS is enabled by default
+# If cert_path and key_path is not set, sdhttpp will generate a self-signed SSL
+# If you have another security layer (eg. Tor or SSL when port-forwarding), you may set this true to disable SSL
+insecure_http = false
+
+# Certificate path for SSL
+# You can't use '../' for security reasons
+# cert_path = "path/to/cert"
+
+# Key path for SSL
+# You can't use '../' for security reasons
+# key_path = "path/to/key"
+
 [content]
 # Content to serve (choose one of the following options):
 

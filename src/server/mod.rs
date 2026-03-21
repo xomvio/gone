@@ -6,11 +6,12 @@ use std::sync::Arc;
 
 use crate::{
     config::Config,
-    http,
-    tls,
     utils,
     visitor::{Visit, Visitor},
 };
+
+mod http;
+mod tls;
 
 enum HandleResult {
     Continue,
@@ -62,11 +63,9 @@ fn handle_connection<S: Read + Write>(
     }
 
     println!("seen!");
-    if http::serve_content(stream, config, server_name) {
-        HandleResult::Served
-    } else {
-        HandleResult::ServeError
-    }
+    let served = http::serve_content(stream, config, server_name);
+    let _ = stream.flush();
+    if served { HandleResult::Served } else { HandleResult::ServeError }
 }
 
 pub fn run(config: Config) -> ! {
@@ -74,9 +73,9 @@ pub fn run(config: Config) -> ! {
     let endpoint = config.server.endpoint.clone().unwrap_or_else(utils::random_endpoint);
     let expected_url = format!("/{}", endpoint);
     let server_name = utils::cow_str_to_str(&config.server.server_name, "nginx").to_string();
-    let https = config.server.https.unwrap_or(false);
+    let insecure_http = config.server.insecure_http.unwrap_or(false);
 
-    let tls_config = if https { Some(tls::make_tls_config(&config)) } else { None };
+    let tls_config = if !insecure_http { Some(tls::make_tls_config(&config)) } else { None };
     let mut log_file = utils::open_log_file(&config);
     let mut visitors: HashMap<String, Visitor> = HashMap::new();
 
@@ -89,7 +88,7 @@ pub fn run(config: Config) -> ! {
         "Server started\nport: {}\nendpoint: {}\n{}",
         port,
         expected_url,
-        if https { "https: true\n" } else { "" }
+        if !insecure_http { "https: true\n" } else { "https: FALSE" }
     );
 
     for stream in listener.incoming() {
