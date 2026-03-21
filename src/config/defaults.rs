@@ -1,15 +1,4 @@
-use crate::config::{Config, ContentConfig, SecurityConfig, ServerConfig};
-
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            server: ServerConfig::default(),
-            content: ContentConfig::default(),
-            security: SecurityConfig::default(),
-        }
-    }
-}
+use crate::config::{ContentConfig, SecurityConfig, ServerConfig};
 
 impl Default for ServerConfig {
     fn default() -> Self {

@@ -2,8 +2,6 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Read, Write};
 use rand::distr::Alphanumeric;
 use rand::Rng;
-use chrono;
-
 use crate::config::Config;
 use crate::visitor::Visit;
 

@@ -13,7 +13,7 @@ pub fn validate(config: &Config) -> Result<(), String> {
     validate::validate(config)
 }
 
-#[derive(serde::Deserialize, Clone, Debug)]
+#[derive(serde::Deserialize, Clone, Debug, Default)]
 pub struct Config {
     #[serde(default)]
     pub server: ServerConfig,

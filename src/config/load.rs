@@ -1,7 +1,5 @@
 use std::{fs, path::Path};
 use clap::Parser;
-use toml;
-
 use crate::config::{Config, DEFAULT_CONFIG, args::Args, validate};
 
 pub fn load() -> Result<Config, String> {
