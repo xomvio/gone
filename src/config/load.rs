@@ -82,6 +82,9 @@ pub fn load() -> Config {
     if args.tor {
         config.server.tor = Some(true);
     }
+    if args.port_forwarded {
+        config.server.port_forwarded = Some(true);
+    }
     if let Some(cert_path) = args.cert_path {
         config.server.cert_path = Some(cert_path);
     }

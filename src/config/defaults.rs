@@ -23,6 +23,7 @@ impl Default for ServerConfig {
             output: None,
             insecure_http: None,
             tor: None,
+            port_forwarded: None,
             cert_path: None,
             key_path: None,
         }

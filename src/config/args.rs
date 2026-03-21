@@ -55,6 +55,10 @@ pub struct Args {
     #[arg(long)]
     pub tor: bool,
 
+    /// Listen only on 127.0.0.1 (for use with external port forwarding like tor-daemon or nginx).
+    #[arg(long)]
+    pub port_forwarded: bool,
+
     /// Path to TLS certificate file (PEM format). Requires --key-path.
     #[arg(long, value_name = "FILE")]
     pub cert_path: Option<String>,

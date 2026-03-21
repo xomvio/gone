@@ -87,7 +87,8 @@ pub fn run(config: Config) -> ! {
     let mut log_file = utils::open_log_file(&config);
     let mut visitors: HashMap<String, Visitor> = HashMap::new();
 
-    let listener = TcpListener::bind(format!("0.0.0.0:{}", port)).unwrap_or_else(|e| {
+    let bind_addr = if config.server.port_forwarded.unwrap_or(false) { "127.0.0.1" } else { "0.0.0.0" };
+    let listener = TcpListener::bind(format!("{}:{}", bind_addr, port)).unwrap_or_else(|e| {
         eprintln!("Failed to start server: {}", e);
         std::process::exit(1);
     });

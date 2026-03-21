@@ -31,6 +31,11 @@ pub fn validate(config: &Config) {
         }
     }
 
+    if config.server.tor.unwrap_or(false) && config.server.port_forwarded.unwrap_or(false) {
+        eprintln!("Error: --tor and --port-forwarded cannot be used together.");
+        std::process::exit(1);
+    }
+
     let has_cert = config.server.cert_path.is_some();
     let has_key  = config.server.key_path.is_some();
     if has_cert != has_key {

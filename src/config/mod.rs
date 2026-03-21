@@ -33,6 +33,7 @@ pub struct ServerConfig {
     pub output: Option<String>,
     pub insecure_http: Option<bool>,
     pub tor: Option<bool>,
+    pub port_forwarded: Option<bool>,
     pub cert_path: Option<String>,
     pub key_path: Option<String>,
 }
