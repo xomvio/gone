@@ -4,7 +4,8 @@ use std::time::Duration;
 pub const DEFAULT_SERVER_NAME: &str = "nginx";
 
 /// Default `Content-Type` HTTP header.
-pub const DEFAULT_CONTENT_TYPE: &str = "text/plain";
+/// Download by default. If user typed --text argument. it will be overrided
+pub const DEFAULT_CONTENT_TYPE: &str = "application/octet-stream";
 
 /// Maximum allowed size for an incoming HTTP request (headers only).
 pub const MAX_REQUEST_SIZE: usize = 16_384; // 16 KB

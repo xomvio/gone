@@ -1,6 +1,7 @@
 use std::{fs, path::Path};
 use clap::Parser;
 use crate::config::{Config, DEFAULT_CONFIG, args::Args, validate};
+use crate::constants;
 
 pub fn load() -> Result<Config, String> {
     let args = Args::parse();
@@ -34,17 +35,19 @@ pub fn load() -> Result<Config, String> {
                 .map_err(|_| format!("Invalid port number '{}'", port_str))?
         );
     }
-    if let Some(content_type) = args.content_type {
-        config.server.content_type = Some(content_type);
+    if let Some(content_type) = &args.content_type {
+        config.server.content_type = Some(content_type.to_owned());
     }
     if let Some(server_name) = args.server_name {
         config.server.server_name = Some(server_name);
     }
     if let Some(from_file) = args.from_file {
         config.content.from_file = Some(from_file);
+        config.content.text = None; // CLI --from-file overrides config text
     }
     if let Some(text) = args.text {
         config.content.text = Some(text);
+        config.content.from_file = None; // CLI --text overrides config from-file
     }
     if let Some(endpoint) = args.endpoint {
         config.server.endpoint = Some(endpoint.trim_start_matches('/').to_string());
@@ -87,6 +90,14 @@ pub fn load() -> Result<Config, String> {
     // Server adds it later
     if let Some(endpoint) = &mut config.server.endpoint {
         *endpoint = endpoint.trim_start_matches('/').to_string();
+    }
+
+    // Auto-set content-type to text/plain when serving text and no explicit content-type was set
+    if config.content.text.is_some() && config.content.from_file.is_none() {
+        let is_default = config.server.content_type.as_deref() == Some(constants::DEFAULT_CONTENT_TYPE);
+        if is_default {
+            config.server.content_type = Some("text/plain".to_string());
+        }
     }
 
     validate(&config)?;

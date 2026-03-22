@@ -76,4 +76,79 @@ impl SecurityConfig {
     }
 }
 
-// ── Default impls ─────────────────────────────────────────────────────────────
+// Tests __________________________________________
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn security_config(
+        methods: Option<Vec<&str>>,
+        whitelist: Option<Vec<&str>>,
+        blacklist: Option<Vec<&str>>,
+    ) -> SecurityConfig {
+        SecurityConfig {
+            allowed_methods: methods.map(|m| m.into_iter().map(String::from).collect()),
+            whitelist: whitelist.map(|w| w.into_iter().map(String::from).collect()),
+            blacklist: blacklist.map(|b| b.into_iter().map(String::from).collect()),
+        }
+    }
+
+    #[test]
+    fn method_allowed_when_no_restriction() {
+        let sec = security_config(None, None, None);
+        assert!(sec.is_method_allowed("GET"));
+        assert!(sec.is_method_allowed("POST"));
+        assert!(sec.is_method_allowed("DELETE"));
+    }
+
+    #[test]
+    fn method_allowed_only_listed() {
+        let sec = security_config(Some(vec!["GET"]), None, None);
+        assert!(sec.is_method_allowed("GET"));
+        assert!(!sec.is_method_allowed("POST"));
+    }
+
+    #[test]
+    fn method_allowed_case_insensitive() {
+        let sec = security_config(Some(vec!["GET"]), None, None);
+        assert!(sec.is_method_allowed("get"));
+        assert!(sec.is_method_allowed("Get"));
+    }
+
+    #[test]
+    fn ip_allowed_when_no_lists() {
+        let sec = security_config(None, None, None);
+        assert!(sec.is_ip_allowed("1.2.3.4"));
+    }
+
+    #[test]
+    fn ip_blocked_by_blacklist() {
+        let sec = security_config(None, None, Some(vec!["1.2.3.4"]));
+        assert!(!sec.is_ip_allowed("1.2.3.4"));
+        assert!(sec.is_ip_allowed("5.6.7.8"));
+    }
+
+    #[test]
+    fn ip_whitelist_only_allows_listed() {
+        let sec = security_config(None, Some(vec!["1.2.3.4"]), None);
+        assert!(sec.is_ip_allowed("1.2.3.4"));
+        assert!(!sec.is_ip_allowed("5.6.7.8"));
+    }
+
+    #[test]
+    fn ip_whitelist_takes_priority_over_blacklist() {
+        let sec = security_config(None, Some(vec!["1.2.3.4"]), Some(vec!["1.2.3.4"]));
+        // Whitelist active → only whitelist matters
+        assert!(sec.is_ip_allowed("1.2.3.4"));
+        assert!(!sec.is_ip_allowed("5.6.7.8"));
+    }
+
+    #[test]
+    fn ip_empty_whitelist_falls_through_to_blacklist() {
+        let sec = security_config(None, Some(vec![]), Some(vec!["1.2.3.4"]));
+        // Empty whitelist = not active → blacklist applies
+        assert!(!sec.is_ip_allowed("1.2.3.4"));
+        assert!(sec.is_ip_allowed("5.6.7.8"));
+    }
+}

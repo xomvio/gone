@@ -69,3 +69,65 @@ pub fn serve_content<W: Write>(stream: &mut W, config: &Config, server_name: &st
         }
     }
 }
+
+// Tests __________________________________________
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{ContentConfig, SecurityConfig, ServerConfig};
+
+    #[test]
+    fn parse_valid_request_line() {
+        let raw = "GET /secret HTTP/1.1\r\nHost: localhost\r\n\r\n";
+        let result = parse_request_line(raw).unwrap();
+        assert_eq!(result, ("GET".into(), "/secret".into(), "HTTP/1.1".into()));
+    }
+
+    #[test]
+    fn parse_post_request() {
+        let raw = "POST /upload HTTP/1.0\r\n\r\n";
+        let result = parse_request_line(raw).unwrap();
+        assert_eq!(result, ("POST".into(), "/upload".into(), "HTTP/1.0".into()));
+    }
+
+    #[test]
+    fn parse_missing_version() {
+        let raw = "GET /secret\r\n\r\n";
+        assert!(parse_request_line(raw).is_none());
+    }
+
+    #[test]
+    fn parse_empty_string() {
+        assert!(parse_request_line("").is_none());
+    }
+
+    #[test]
+    fn send_404_contains_status_and_server() {
+        let mut buf: Vec<u8> = Vec::new();
+        send_404(&mut buf, "nginx");
+        let response = String::from_utf8(buf).unwrap();
+        assert!(response.contains("404 Not Found"));
+        assert!(response.contains("Server: nginx"));
+        assert!(response.contains("Connection: close"));
+    }
+
+    #[test]
+    fn serve_text_content() {
+        let config = Config {
+            server: ServerConfig::default(),
+            content: ContentConfig {
+                text: Some("hello world".into()),
+                from_file: None,
+            },
+            security: SecurityConfig::default(),
+        };
+        let mut buf: Vec<u8> = Vec::new();
+        let result = serve_content(&mut buf, &config, "test-server");
+        assert!(result);
+        let response = String::from_utf8(buf).unwrap();
+        assert!(response.contains("200 OK"));
+        assert!(response.contains("Server: test-server"));
+        assert!(response.contains("Content-Length: 11"));
+        assert!(response.ends_with("hello world"));
+    }
+}

@@ -93,3 +93,88 @@ pub fn sha256_text(text: &str) -> String {
     hasher.update(text.as_bytes());
     format!("{:x}", hasher.finalize())
 }
+
+
+// Tests __________________________________________
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn sha256_text_known_value() {
+        // echo -n "hello" | sha256sum
+        assert_eq!(
+            sha256_text("hello"),
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+        );
+    }
+
+    #[test]
+    fn sha256_text_empty() {
+        // echo -n "" | sha256sum
+        assert_eq!(
+            sha256_text(""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+    }
+
+    #[test]
+    fn sha256_file_matches_text() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test.txt");
+        std::fs::write(&path, "hello").unwrap();
+        assert_eq!(
+            sha256_file(path.to_str().unwrap()).unwrap(),
+            sha256_text("hello")
+        );
+    }
+
+    #[test]
+    fn sha256_file_nonexistent_returns_none() {
+        assert!(sha256_file("/nonexistent/file.txt").is_none());
+    }
+
+    #[test]
+    fn random_endpoint_length() {
+        let ep = random_endpoint();
+        assert_eq!(ep.len(), 64);
+    }
+
+    #[test]
+    fn random_endpoint_alphanumeric() {
+        let ep = random_endpoint();
+        assert!(ep.chars().all(|c| c.is_ascii_alphanumeric()));
+    }
+
+    #[test]
+    fn read_valid_request() {
+        let data = b"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n";
+        let mut cursor = Cursor::new(data.to_vec());
+        let result = read_request(&mut cursor);
+        assert!(result.is_some());
+        assert!(result.unwrap().contains("GET / HTTP/1.1"));
+    }
+
+    #[test]
+    fn read_empty_stream_returns_none() {
+        let mut cursor = Cursor::new(Vec::new());
+        assert!(read_request(&mut cursor).is_none());
+    }
+
+    #[test]
+    fn read_oversized_request_returns_none() {
+        // 17KB of 'A' without \r\n\r\n
+        let data = vec![b'A'; constants::MAX_REQUEST_SIZE + 1024];
+        let mut cursor = Cursor::new(data);
+        assert!(read_request(&mut cursor).is_none());
+    }
+
+    #[test]
+    fn random_port_in_range() {
+        for _ in 0..100 {
+            let port = random_port();
+            assert!(port >= constants::MIN_PORT);
+        }
+    }
+}

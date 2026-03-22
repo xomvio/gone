@@ -63,10 +63,19 @@ async fn run_async(config: Config) -> Result<(), String> {
         tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
     };
 
+    let hash = match &config.content.from_file {
+        Some(path) => utils::sha256_file(path).unwrap_or_else(|| "hash error".to_string()),
+        None => {
+            let text = config.content.text.as_deref().unwrap_or("No content");
+            utils::sha256_text(text)
+        }
+    };
+
     println!(
-        "Server started\nonion: {}\nendpoint: {}\n",
+        "Server started\nonion: {}\nendpoint: {}\nHash: {}\n",
         onion_addr.display_unredacted(),
-        expected_url
+        expected_url,
+        hash
     );
 
     let mut stream_requests = handle_rend_requests(rend_requests);
