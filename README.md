@@ -34,7 +34,7 @@ Hash: 3d2e...
 
 Share the URL with recipient:
 
-```http://<local-ip>:<port>/<endpoint>```
+```http://<ip>:<port>/<endpoint>```
 
 or over tor
 ```http://<onion-address>.onion/<endpoint>```
