@@ -1,5 +1,8 @@
 use std::fs::File;
-use std::io::Write;
+use std::io::{Read, Write};
+use std::os::unix::ffi::OsStrExt;
+use std::os::unix::fs::MetadataExt;
+use std::path::{Path, PathBuf};
 
 use crate::{config::Config, constants};
 
@@ -34,27 +37,30 @@ pub fn serve_content<W: Write>(stream: &mut W, config: &Config, server_name: &st
 
     match &config.content.from_file {
         Some(path) => {
-            let mut file = match File::open(path) {
+            let path = PathBuf::from(path);
+            let file = match File::open(&path) {
                 Ok(f) => f,
                 Err(e) => {
-                    eprintln!("Failed to open file '{}': {}", path, e);
+                    eprintln!("Failed to open file '{}': {}", path.to_string_lossy(), e);
                     return false;
                 }
             };
             let size = match file.metadata() {
                 Ok(m) => m.len(),
                 Err(e) => {
-                    eprintln!("Failed to stat file '{}': {}", path, e);
+                    eprintln!("Failed to stat file '{}': {}", path.to_string_lossy(), e);
                     return false;
                 }
             };
+            let attachment_string = format!("Content-Disposition: attachment; filename=\"{}\"\r\n", String::from_utf8_lossy(path.file_name().unwrap().as_bytes()));
             let header = format!(
-                "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nServer: {server_name}\r\nConnection: close\r\nContent-Length: {size}\r\n\r\n"
+                "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\n{attachment_string}Server: {server_name}\r\nConnection: close\r\nContent-Length: {size}\r\n\r\n"
             );
             if stream.write_all(header.as_bytes()).is_err() {
                 return false;
             }
-            std::io::copy(&mut file, stream).is_ok()
+            //std::io::copy(&mut file, stream).is_ok()
+            send_file(file, stream, config.server.quiet.unwrap_or(false)).is_ok()
         }
         None => {
             let text = config.content.text.as_deref().unwrap_or("No content");
@@ -68,6 +74,48 @@ pub fn serve_content<W: Write>(stream: &mut W, config: &Config, server_name: &st
             stream.write_all(text.as_bytes()).is_ok()
         }
     }
+}
+
+fn send_file<W: Write>(mut file: File, stream: &mut W, quiet: bool) -> Result<(), std::io::Error> {
+    let file_size = file.metadata().unwrap().size();
+    println!("{}",file_size);
+    if file_size < 1_048_576 {
+        let served =  std::io::copy(&mut file, stream);
+        return match served {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e)
+        }
+    }
+
+    let mut sent: u64 = 0;
+    let mut buf = [0u8; 8192];
+    let mut last_percent = 101u8;
+
+    loop {
+        let n = match file.read(&mut buf) {
+            Ok(0) => break,
+            Ok(n) => n,
+            Err(e)=> return Err(e)
+        };
+
+        match stream.write_all(&buf[..n]) {
+            Ok(_) => {},
+            Err(e) => return Err(e)
+        }
+
+        sent += n as u64;
+        let percent = (sent * 100 / file_size) as u8;
+        if percent != last_percent {
+            let mut sent_str = sent.to_string(); sent_str.truncate(sent.to_string().len()-6);
+            let mut size_str = file_size.to_string(); size_str.truncate(size_str.len()-6);
+            
+            print!("\rDownloading: {}%  {} / {} MB", percent, sent, file_size);
+            let _ = std::io::stdout().flush();
+            last_percent = percent;
+        }
+    }
+
+    Ok(())
 }
 
 // Tests __________________________________________
