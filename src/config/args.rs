@@ -64,6 +64,10 @@ pub struct Args {
     #[arg(long, value_name = "FILE")]
     pub key_path: Option<String>,
 
+    /// Filename for Content-Disposition header when reading from stdin (requires --from-file -)
+    #[arg(long, value_name = "NAME")]
+    pub stdin_filename: Option<String>,
+
     /// Suppress request logging to stdout (server info and hash still shown)
     #[arg(long)]
     pub quiet: bool,

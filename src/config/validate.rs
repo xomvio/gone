@@ -5,7 +5,7 @@ use crate::constants;
 
 
 pub fn validate(config: &Config) -> Result<(), String> {
-    if config.content.from_file.is_none() && config.content.text.is_none() {
+    if config.content.from_file.is_none() && config.content.text.is_none() && config.content.stdin_data.is_none() {
         return Err("You must specify either --from-file or --text".to_string());
     }
 
@@ -74,6 +74,8 @@ mod tests {
             content: ContentConfig {
                 text: Some(text.into()),
                 from_file: None,
+                stdin_data: None,
+                stdin_filename: None,
             },
             server: ServerConfig::default(),
             security: SecurityConfig::default(),
@@ -88,7 +90,7 @@ mod tests {
     #[test]
     fn no_content_fails() {
         let config = Config {
-            content: ContentConfig { text: None, from_file: None },
+            content: ContentConfig { text: None, from_file: None, stdin_data: None, stdin_filename: None },
             server: ServerConfig::default(),
             security: SecurityConfig::default(),
         };

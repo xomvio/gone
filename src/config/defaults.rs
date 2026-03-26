@@ -24,6 +24,8 @@ impl Default for ContentConfig {
         Self {
             text: Some("This is a secret message that will be shown once.".to_string()),
             from_file: None,
+            stdin_data: None,
+            stdin_filename: None,
         }
     }
 }

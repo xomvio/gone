@@ -42,6 +42,10 @@ pub struct ServerConfig {
 pub struct ContentConfig {
     pub text: Option<String>,
     pub from_file: Option<String>,
+    #[serde(skip)]
+    pub stdin_data: Option<Vec<u8>>,
+    #[serde(skip)]
+    pub stdin_filename: Option<String>,
 }
 
 #[derive(serde::Deserialize, Clone, Debug)]

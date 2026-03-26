@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::MetadataExt;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use crate::{config::Config, constants};
 
@@ -36,6 +36,7 @@ pub fn serve_content<W: Write>(stream: &mut W, config: &Config, server_name: &st
     let content_type = config.server.content_type.as_deref().unwrap_or(constants::DEFAULT_CONTENT_TYPE);
 
     match &config.content.from_file {
+        // Handle from_file first
         Some(path) => {
             let path = PathBuf::from(path);
             let file = match File::open(&path) {
@@ -59,19 +60,34 @@ pub fn serve_content<W: Write>(stream: &mut W, config: &Config, server_name: &st
             if stream.write_all(header.as_bytes()).is_err() {
                 return false;
             }
-            //std::io::copy(&mut file, stream).is_ok()
             send_file(file, stream, config.server.quiet.unwrap_or(false)).is_ok()
         }
-        None => {
-            let text = config.content.text.as_deref().unwrap_or("No content");
-            let header = format!(
-                "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nServer: {server_name}\r\nConnection: close\r\nContent-Length: {}\r\n\r\n",
-                text.len()
-            );
-            if stream.write_all(header.as_bytes()).is_err() {
-                return false;
+        // if there is from_file is None, then check if stdin is used.
+        None => match &config.content.stdin_data {
+            Some(data) => {
+                let filename = config.content.stdin_filename.as_deref().unwrap_or("download");
+                let attachment = format!("Content-Disposition: attachment; filename=\"{}\"\r\n", filename);
+                let header = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\n{attachment}Server: {server_name}\r\nConnection: close\r\nContent-Length: {}\r\n\r\n",
+                    data.len()
+                );
+                if stream.write_all(header.as_bytes()).is_err() {
+                    return false;
+                }
+                stream.write_all(data).is_ok()
             }
-            stream.write_all(text.as_bytes()).is_ok()
+            // if stdin is empty, then send it is text.
+            None => {
+                let text = config.content.text.as_deref().unwrap_or("No content");
+                let header = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nServer: {server_name}\r\nConnection: close\r\nContent-Length: {}\r\n\r\n",
+                    text.len()
+                );
+                if stream.write_all(header.as_bytes()).is_err() {
+                    return false;
+                }
+                stream.write_all(text.as_bytes()).is_ok()
+            }
         }
     }
 }
@@ -105,7 +121,7 @@ fn send_file<W: Write>(mut file: File, stream: &mut W, quiet: bool) -> Result<()
 
         sent += n as u64;
         let percent = (sent * 100 / file_size) as u8;
-        if percent != last_percent {
+        if percent != last_percent && !quiet {
             let mut sent_str = sent.to_string(); sent_str.truncate(sent.to_string().len()-6);
             let mut size_str = file_size.to_string(); size_str.truncate(size_str.len()-6);
             
@@ -166,6 +182,8 @@ mod tests {
             content: ContentConfig {
                 text: Some("hello world".into()),
                 from_file: None,
+                stdin_data: None,
+                stdin_filename: None,
             },
             security: SecurityConfig::default(),
         };

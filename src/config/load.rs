@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::{fs, io::Read, path::Path};
 use clap::Parser;
 use crate::config::{Config, DEFAULT_CONFIG, args::Args, validate};
 use crate::constants;
@@ -42,7 +42,19 @@ pub fn load() -> Result<Config, String> {
         config.server.server_name = Some(server_name);
     }
     if let Some(from_file) = args.from_file {
-        config.content.from_file = Some(from_file);
+        if from_file == "-" {
+            // Stdin mode: read all data from stdin
+            let stdin_filename = args.stdin_filename
+                .ok_or("stdin mode requires --stdin-filename (e.g., --from-file - --stdin-filename file.pdf)")?;
+            let mut data = Vec::new();
+            std::io::stdin().read_to_end(&mut data)
+                .map_err(|e| format!("Failed to read from stdin: {}", e))?;
+            config.content.stdin_data = Some(data);
+            config.content.stdin_filename = Some(stdin_filename);
+            config.content.from_file = None;
+        } else {
+            config.content.from_file = Some(from_file);
+        }
         config.content.text = None; // CLI --from-file overrides config text
     }
     if let Some(text) = args.text {

@@ -70,17 +70,6 @@ pub(crate) fn handle_connection<S: Read + Write>(
     let served = http::serve_content(stream, config, server_name);
     let _ = stream.flush();
 
-    if served {
-        let hash = match &config.content.from_file {
-            Some(path) => utils::sha256_file(path).unwrap_or_else(|| "hash error".to_string()),
-            None => {
-                let text = config.content.text.as_deref().unwrap_or("No content");
-                utils::sha256_text(text)
-            }
-        };
-        println!("SHA-256: {}", hash);
-    }
-
     if served { HandleResult::Served } else { HandleResult::ServeError }
 }
 
@@ -107,12 +96,15 @@ pub fn run(config: Config) -> Result<(), String> {
 
     let hash = match &config.content.from_file {
         Some(path) => utils::sha256_file(path).unwrap_or_else(|| "hash error".to_string()),
-        None => {
-            let text = config.content.text.as_deref().unwrap_or("No content");
-            utils::sha256_text(text)
+        None => match &config.content.stdin_data {
+            Some(data) => utils::sha256_bytes(data),
+            None => {
+                let text = config.content.text.as_deref().unwrap_or("No content");
+                utils::sha256_text(text)
+            }
         }
     };
-    
+
     println!(
         "Server started\nport: {}\nendpoint: {}\nHash: {}\n{}",
         port,

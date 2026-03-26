@@ -65,9 +65,12 @@ async fn run_async(config: Config) -> Result<(), String> {
 
     let hash = match &config.content.from_file {
         Some(path) => utils::sha256_file(path).unwrap_or_else(|| "hash error".to_string()),
-        None => {
-            let text = config.content.text.as_deref().unwrap_or("No content");
-            utils::sha256_text(text)
+        None => match &config.content.stdin_data {
+            Some(data) => utils::sha256_bytes(data),
+            None => {
+                let text = config.content.text.as_deref().unwrap_or("No content");
+                utils::sha256_text(text)
+            }
         }
     };
 

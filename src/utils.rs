@@ -87,10 +87,15 @@ pub fn sha256_file(path: &str) -> Option<String> {
     Some(format!("{:x}", hasher.finalize()))
 }
 
-/// Compute SHA-256 hash of a text string.
+// Generate SHA-256 hash of text
 pub fn sha256_text(text: &str) -> String {
+    sha256_bytes(text.as_bytes())
+}
+
+// Generate SHA-256 hash of raw bytes
+pub fn sha256_bytes(data: &[u8]) -> String {
     let mut hasher = Sha256::new();
-    hasher.update(text.as_bytes());
+    hasher.update(data);
     format!("{:x}", hasher.finalize())
 }
 
