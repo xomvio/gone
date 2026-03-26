@@ -125,7 +125,7 @@ fn send_file<W: Write>(mut file: File, stream: &mut W, quiet: bool) -> Result<()
             let mut sent_str = sent.to_string(); sent_str.truncate(sent.to_string().len()-6);
             let mut size_str = file_size.to_string(); size_str.truncate(size_str.len()-6);
             
-            print!("\rDownloading: {}%  {} / {} MB", percent, sent, file_size);
+            print!("\rDownloading: {}%  {} / {} MB", percent, sent/1000000, file_size/1000000);
             let _ = std::io::stdout().flush();
             last_percent = percent;
         }
