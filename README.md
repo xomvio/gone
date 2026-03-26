@@ -83,7 +83,7 @@ tar czf - ./folder | gone --from-file - --stdin-filename folder.tar.gz
 `--from-file -` reads from stdin. `--stdin-filename` sets the download filename for the receiver.
 
 ### With custom settings
-`gone --port 9191 --endpoint mylink --from-file ./file.zip`
+`gone --port 9191 --endpoint youmustseethis --from-file /home/user/rickroll.mp4 --content-type video/mp4`
 
 ## Usage
 <!-- generated from gone --help -->
@@ -116,22 +116,13 @@ Options:
 
 ## Installation / Building
 > Compilation from source requires [Rust](https://rustup.rs/) toolchain.
->
-### Without Tor:
-Download latest binary from releases or compile from source:
+
+Download latest binary from releases OR compile from source:
 
 ```bash
 cargo build --release
 # Binary: target/release/gone
 ./gone --text "secret message"
-```
-
-### With Tor Support:
-Download latest binary (Tor version) from releases or compile from source:
-```bash
-cargo build --release --features tor
-# Binary: target/release/gone
-./gone --tor --text "secret message"
 ```
 
 ## Security
