@@ -21,6 +21,9 @@ sdhttpp --text "meet me in central park"
 
 # Serve a file over Tor
 sdhttpp --tor --from-file ./document.pdf
+
+# Pipe from stdin (e.g., with encryption)
+age -e -r <recipient-key> secret.pdf | sdhttpp --from-file - --stdin-filename secret.pdf.age
 ```
 
 ## After Running
@@ -69,6 +72,16 @@ Just open `http://<local-ip>:<port>/<endpoint>` from any device on the same netw
 ### Behind a reverse proxy or VPN
 `sdhttpp --port-forwarded --from-file ./data.csv`
 
+### Pipe from stdin
+```bash
+# Encrypt and serve in one command
+age -e -r <recipient-key> secret.pdf | sdhttpp --from-file - --stdin-filename secret.pdf.age
+
+# Pipe any command output
+tar czf - ./folder | sdhttpp --from-file - --stdin-filename folder.tar.gz
+```
+`--from-file -` reads from stdin. `--stdin-filename` sets the download filename for the receiver.
+
 ### With custom settings
 `sdhttpp --port 9191 --endpoint mylink --from-file ./file.zip`
 
@@ -93,6 +106,7 @@ Options:
       --port-forwarded             Listen only on 127.0.0.1 (for use with external port forwarding like tor-daemon or nginx)
       --cert-path <FILE>           Path to TLS certificate file (PEM format). Requires --key-path
       --key-path <FILE>            Path to TLS private key file (PEM format). Requires --cert-path
+      --stdin-filename <NAME>      Filename for Content-Disposition header when reading from stdin (requires --from-file -)
       --quiet                      Suppress request logging to stdout (server info and hash still shown)
       --generate-config            Generate a default config file and exit
   -c, --config <CONFIG>            Path to config file (default: config.toml in current directory) [default: config.toml]
@@ -136,7 +150,10 @@ cargo build --release --features tor
 
 ### Recommendations
 - For sensitive data: always use --tor
-- For maximum security: encrypt content with age or GPG before serving.
+- For maximum security: encrypt content with [age](https://github.com/FiloSottile/age) or GPG before serving:
+  ```bash
+  age -e -r <recipient-key> secret.pdf | sdhttpp --tor --from-file - --stdin-filename secret.pdf.age
+  ```
 - For better Tor stability: consider using the Tor daemon with --port-forwarded instead of built-in Arti (which is official but experimental)
 
 ### About --insecure-http
@@ -149,7 +166,7 @@ Disables TLS entirely. Use this only when:
 ## Configuration
 You can configure sdhttpp in command-line arguments or with a config file.
 
-Generating a default config gile:
+Generating a default config file:
 ```bash
 sdhttpp --generate-config
 ```
