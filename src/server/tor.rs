@@ -44,7 +44,7 @@ async fn run_async(config: Config) -> Result<(), String> {
 
     let svc_config = OnionServiceConfigBuilder::default()
         .nickname(
-            "sdhttpp".parse()
+            "gone".parse()
                 .map_err(|e| format!("Failed to parse nickname: {}", e))?,
         )
         .build()

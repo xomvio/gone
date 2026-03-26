@@ -1,6 +1,6 @@
-# sdhttpp - Self-Destructing HTTP(s) Provider
+# Gone
 
-A single-use HTTPS server that serves content just once, then shuts down.
+A single-use HTTPS server that serves content just once, then gone.
 
 With built-in Tor support, both sender and receiver can stay anonymous.
 
@@ -14,20 +14,20 @@ No accounts, no cloud, no third-party.
 ## Quick Start
 ```bash
 # Serve a file over HTTPS
-sdhttpp --from-file ./document.pdf
+gone --from-file ./document.pdf
 
 # Serve a text
-sdhttpp --text "meet me in central park"
+gone --text "meet me in central park"
 
 # Serve a file over Tor
-sdhttpp --tor --from-file ./document.pdf
+gone --tor --from-file ./document.pdf
 
 # Pipe from stdin (e.g., with encryption)
-age -e -r <recipient-key> secret.pdf | sdhttpp --from-file - --stdin-filename secret.pdf.age
+age -e -r <recipient-key> secret.pdf | gone --from-file - --stdin-filename secret.pdf.age
 ```
 
 ## After Running
-After running sdhttpp you'll see:
+After running Gone you'll see:
 ```bash
 Server started
 port: 47832
@@ -39,10 +39,10 @@ Share the URL with recipient:
 
 ```http://<ip>:<port>/<endpoint>```
 
-or over tor
+or over Tor:
 ```http://<onion-address>.onion/<endpoint>```
 
-They open it once → content is delivered → server shuts down.
+They open it once → content is delivered → gone.
 
 ## Receiving Content
 The receiver just opens the URL in their browser. That's it.
@@ -52,43 +52,43 @@ The receiver just opens the URL in their browser. That's it.
 
 ## Examples
 
-> **Note:** Without `--tor` or `--port-forwarded`, the receiver needs 
+> **Note:** Without `--tor` or `--port-forwarded`, the receiver needs
 > direct access to your IP (e.g., public IP or same network).
 
 ### Basic: share over local network
-```sdhttpp --insecure-http --from-file ./photo.jpg```
+```gone --insecure-http --from-file ./photo.jpg```
 
 Just open `http://<local-ip>:<port>/<endpoint>` from any device on the same network and the download will start.
 
 ### With self-signed HTTPS (default)
-`sdhttpp --text "secret message"`
+`gone --text "secret message"`
 
 ### With manual HTTPS
-`sdhttpp --text "secret message" --cert-path "/path/to/cert" --key-path "/path/to/key"`
+`gone --text "secret message" --cert-path "/path/to/cert" --key-path "/path/to/key"`
 
-### With built-in Tor (requires tor version)
-`sdhttpp --tor --text "secret message"`
+### With built-in Tor
+`gone --tor --text "secret message"`
 
 ### Behind a reverse proxy or VPN
-`sdhttpp --port-forwarded --from-file ./data.csv`
+`gone --port-forwarded --from-file ./data.csv`
 
 ### Pipe from stdin
 ```bash
 # Encrypt and serve in one command
-age -e -r <recipient-key> secret.pdf | sdhttpp --from-file - --stdin-filename secret.pdf.age
+age -e -r <recipient-key> secret.pdf | gone --from-file - --stdin-filename secret.pdf.age
 
 # Pipe any command output
-tar czf - ./folder | sdhttpp --from-file - --stdin-filename folder.tar.gz
+tar czf - ./folder | gone --from-file - --stdin-filename folder.tar.gz
 ```
 `--from-file -` reads from stdin. `--stdin-filename` sets the download filename for the receiver.
 
 ### With custom settings
-`sdhttpp --port 9191 --endpoint mylink --from-file ./file.zip`
+`gone --port 9191 --endpoint mylink --from-file ./file.zip`
 
 ## Usage
-<!-- generated from sdhttpp --help -->
+<!-- generated from gone --help -->
 ```bash
-Usage: sdhttpp [OPTIONS]
+Usage: gone [OPTIONS]
 
 Options:
   -p, --port <PORT>                Port to listen on (1024-65535)
@@ -102,7 +102,7 @@ Options:
       --blacklist <IPS>            IP addresses to always block, comma-separated
       --whitelist <IPS>            IP addresses to allow exclusively, comma-separated
       --insecure-http              Disable TLS and use plain HTTP (HTTPS is the default)
-      --tor                        Route through Tor (starts an onion service via arti). Requires building with `--features tor`
+      --tor                        Route through Tor (starts an onion service via arti)
       --port-forwarded             Listen only on 127.0.0.1 (for use with external port forwarding like tor-daemon or nginx)
       --cert-path <FILE>           Path to TLS certificate file (PEM format). Requires --key-path
       --key-path <FILE>            Path to TLS private key file (PEM format). Requires --cert-path
@@ -116,35 +116,35 @@ Options:
 
 ## Installation / Building
 > Compilation from source requires [Rust](https://rustup.rs/) toolchain.
-> 
+>
 ### Without Tor:
 Download latest binary from releases or compile from source:
 
 ```bash
 cargo build --release
-# Binary: target/release/sdhttpp
-./sdhttpp --text "secret message"
+# Binary: target/release/gone
+./gone --text "secret message"
 ```
 
 ### With Tor Support:
-Download latest binary(Tor version) from releases or compile from source:
+Download latest binary (Tor version) from releases or compile from source:
 ```bash
 cargo build --release --features tor
-# Binary: target/release/sdhttpp
-./sdhttpp --tor --text "secret message"
+# Binary: target/release/gone
+./gone --tor --text "secret message"
 ```
 
 ## Security
 
-### What sdhttpp does
-- Serves content exactly once, then shuts down. Minimal attack surface.
+### What Gone does
+- Serves content exactly once, then it's gone. Minimal attack surface.
 - Generates a random 64-character endpoint which acts as a shared secret
 - HTTPS by default with self-signed certificate
 - Tor mode hides both sender's and receiver's IP addresses
-- Prints SHA-256 hash. So the receiver can verify content integrity
+- Prints SHA-256 hash so the receiver can verify content integrity
 - Disguises itself as nginx to casual port scanners
 
-### What sdhttpp does **NOT** do
+### What Gone does **NOT** do
 - **No end-to-end encryption.** HTTPS protects the transport layer only. If your threat model includes state-level actors or compromised CAs, consider encrypting your content before serving it, even over Tor.
 - No recipient authentication. Anyone with the correct URL gets the content. Share the URL only through a secure channel (encrypted messaging, or even pen and paper).
 
@@ -152,7 +152,7 @@ cargo build --release --features tor
 - For sensitive data: always use --tor
 - For maximum security: encrypt content with [age](https://github.com/FiloSottile/age) or GPG before serving:
   ```bash
-  age -e -r <recipient-key> secret.pdf | sdhttpp --tor --from-file - --stdin-filename secret.pdf.age
+  age -e -r <recipient-key> secret.pdf | gone --tor --from-file - --stdin-filename secret.pdf.age
   ```
 - For better Tor stability: consider using the Tor daemon with --port-forwarded instead of built-in Arti (which is official but experimental)
 
@@ -161,14 +161,14 @@ Disables TLS entirely. Use this only when:
 - Transferring between local devices
 - Using Tor (--tor disables TLS automatically)
 - Using I2P or other overlay networks
-- With Custom encryption pipelines
+- With custom encryption pipelines
 
 ## Configuration
-You can configure sdhttpp in command-line arguments or with a config file.
+You can configure Gone in command-line arguments or with a config file.
 
 Generating a default config file:
 ```bash
-sdhttpp --generate-config
+gone --generate-config
 ```
 Then edit config.toml as you need. Command-line arguments will override config file values.
 

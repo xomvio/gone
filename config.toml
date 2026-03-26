@@ -1,4 +1,4 @@
-# Default configuration for sdHTTPp
+# Default configuration for Gone
 # Save this file as 'config.toml' and modify as needed
 
 [server]
@@ -11,7 +11,7 @@
 # content_type = "text/html"
 
 # Server header to send in responses
-# Tip: Using common server names like 'nginx' or 'apache' can help avoid sdhttpp detection
+# Tip: Using common server names like 'nginx' or 'apache' can help avoid Gone detection
 server_name = "nginx"
 
 # Custom endpoint path (must start with /)
@@ -20,10 +20,10 @@ server_name = "nginx"
 
 # Path to output log file (optional)
 # If not set, logs will only go to stdout
-# output = "sdhttpp.log"
+# output = "notgone.log"
 
 # HTTPS is enabled by default
-# If cert_path and key_path is not set, sdhttpp will generate a self-signed SSL
+# If cert_path and key_path is not set, Gone will generate a self-signed SSL
 # If you have another security layer (eg. Tor or SSL when port-forwarding), you may set this true to disable SSL
 insecure_http = false
 
