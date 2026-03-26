@@ -121,7 +121,7 @@ fn send_file<W: Write>(mut file: File, stream: &mut W, quiet: bool) -> Result<()
 
         sent += n as u64;
         let percent = (sent * 100 / file_size) as u8;
-        if percent != last_percent && !quiet {
+        if percent != last_percent && quiet {
             let mut sent_str = sent.to_string(); sent_str.truncate(sent.to_string().len()-6);
             let mut size_str = file_size.to_string(); size_str.truncate(size_str.len()-6);
             
