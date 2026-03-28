@@ -6,6 +6,7 @@ use std::path::PathBuf;
 
 use crate::{config::Config, constants};
 
+// nginx-like http date header value to enforce misleading scanners
 fn http_date() -> String {
     chrono::Utc::now().format("%a, %d %b %Y %H:%M:%S GMT").to_string()
 }
@@ -34,7 +35,6 @@ pub fn send_404<W: Write>(stream: &mut W, server_name: &str) {
 
 /// Sends an HTTP 200 response with the configured content.
 ///
-/// Uses `std::io::copy` for file content — no full-file buffering, binary-safe.
 /// Returns true on success, false on any read/write error.
 pub fn serve_content<W: Write>(stream: &mut W, config: &Config, server_name: &str) -> bool {
     let content_type = config.server.content_type.as_deref().unwrap_or(constants::DEFAULT_CONTENT_TYPE);

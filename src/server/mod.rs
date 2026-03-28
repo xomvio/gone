@@ -145,6 +145,28 @@ pub fn run(config: Config) -> Result<(), String> {
         std::thread::spawn(move || {
             let result = match &tls_config {
                 Some(tls_cfg) => {
+                    // Peek the first byte to detect plain HTTP vs TLS
+                    let mut peek = [0u8; 1];
+                    if stream.peek(&mut peek).unwrap_or(0) > 0 && peek[0] != 0x16 {
+                        // Not a TLS ClientHello — read HTTP request and redirect to HTTPS
+                        let mut stream = stream;
+                        if let Some(raw) = utils::read_request(&mut stream) {
+                            let host = raw.lines()
+                                .find(|l| l.to_ascii_lowercase().starts_with("host:"))
+                                .and_then(|l| l.split_once(':').map(|(_, v)| v.trim().to_string()))
+                                .unwrap_or_else(|| local_addr.to_string());
+                            let url = http::parse_request_line(&raw)
+                                .map(|(_, url, _)| url)
+                                .unwrap_or_default();
+                            let _ = write!(stream,
+                                "HTTP/1.1 301 Moved Permanently\r\nLocation: https://{}{}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n",
+                                host, url
+                            );
+                            let _ = stream.flush();
+                        }
+                        return;
+                    }
+
                     let conn = match rustls::ServerConnection::new(Arc::clone(tls_cfg)) {
                         Ok(c) => c,
                         Err(e) => { eprintln!("TLS connection error: {}", e); return; }
