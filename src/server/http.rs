@@ -37,7 +37,9 @@ pub fn send_404<W: Write>(stream: &mut W, server_name: &str) {
 ///
 /// Returns true on success, false on any read/write error.
 pub fn serve_content<W: Write>(stream: &mut W, config: &Config, server_name: &str) -> bool {
-    let content_type = config.server.content_type.as_deref().unwrap_or(constants::DEFAULT_CONTENT_TYPE);
+    let content_type = config.server.content_type.as_deref().unwrap_or(
+        if config.content.text.is_some() { "text/plain"} else { constants::DEFAULT_CONTENT_TYPE }
+    );
 
     match &config.content.from_file {
         // Handle from_file first

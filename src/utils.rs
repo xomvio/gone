@@ -8,7 +8,6 @@ use crate::config::Config;
 use crate::constants;
 use crate::visitor::Visit;
 
-
 pub fn random_port() -> u16 {
     let mut rng = rand::rng();
     rng.random_range(constants::MIN_PORT..=65535)

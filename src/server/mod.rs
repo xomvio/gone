@@ -102,13 +102,11 @@ pub fn run(config: Config) -> Result<(), String> {
         }
     };
 
-    println!(
-        "Server started\nport: {}\nendpoint: {}\nHash: {}\n{}",
-        port,
-        expected_url,
-        hash,
-        if !insecure_http { "https: true\n" } else { "https: FALSE" }
-    );
+    let scheme = if insecure_http { "http" } else { "https" };
+
+    println!("Server started");
+    println!("{scheme}://{local_addr}{expected_url}");
+    println!("Hash: {}\n", hash);
 
     // Channel for worker threads to signal that content was served.
     let (tx, rx) = mpsc::sync_channel::<bool>(1);
