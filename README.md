@@ -48,7 +48,7 @@ They open it once → content is delivered → gone.
 The receiver just opens the URL in their browser. That's it.
 - For HTTPS: if manual certificate files did not given, the browser will show a certificate warning (self-signed). This is expected.
 - For Tor: Receiver must use Tor Browser.
-- For insecure HTTP: any browser works, no warnings.
+- For plain HTTP (--no-tls): any browser works, no warnings.
 
 ## Examples
 
@@ -56,7 +56,7 @@ The receiver just opens the URL in their browser. That's it.
 > direct access to your IP (e.g., public IP or same network).
 
 ### Basic: share over local network
-```gone --insecure-http --from-file ./photo.jpg```
+```gone --no-tls --from-file ./photo.jpg```
 
 Just open `http://<local-ip>:<port>/<endpoint>` from any device on the same network and the download will start.
 
@@ -101,7 +101,7 @@ Options:
       --allowed-methods <METHODS>  Allowed HTTP methods, comma-separated (e.g., GET,POST)
       --blacklist <IPS>            IP addresses to always block, comma-separated
       --whitelist <IPS>            IP addresses to allow exclusively, comma-separated
-      --insecure-http              Disable TLS and use plain HTTP (HTTPS is the default)
+      --no-tls                     Disable TLS and use plain HTTP (HTTPS is the default)
       --tor                        Route through Tor (starts an onion service via arti)
       --port-forwarded             Listen only on 127.0.0.1 (for use with external port forwarding like tor-daemon or nginx)
       --cert-path <FILE>           Path to TLS certificate file (PEM format). Requires --key-path
@@ -147,7 +147,7 @@ cargo build --release
   ```
 - For better Tor stability: consider using the Tor daemon with --port-forwarded instead of built-in Arti (which is official but experimental)
 
-### About --insecure-http
+### About --no-tls
 Disables TLS entirely. Use this only when:
 - Transferring between local devices
 - Using Tor (--tor disables TLS automatically)
