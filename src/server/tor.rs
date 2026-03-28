@@ -93,7 +93,7 @@ async fn run_async(config: Config) -> Result<(), String> {
     };
 
     println!(
-        "Server started\nonion: {}\nendpoint: {}\nHash: {}\n",
+        "Server started\nurl: {}{}\nHash: {}\n",
         onion_addr.display_unredacted(),
         expected_url,
         hash

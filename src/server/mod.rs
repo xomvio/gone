@@ -105,7 +105,7 @@ pub fn run(config: Config) -> Result<(), String> {
     let scheme = if no_tls { "http" } else { "https" };
 
     println!("Server started");
-    println!("{scheme}://{local_addr}{expected_url}");
+    println!("url: {scheme}://{local_addr}{expected_url}");
     println!("Hash: {}\n", hash);
 
     // Channel for worker threads to signal that content was served.
