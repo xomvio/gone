@@ -3,7 +3,7 @@ use std::io::{BufWriter, Write};
 use std::sync::Mutex;
 
 use arti_client::config::onion_service::OnionServiceConfigBuilder;
-use arti_client::config::BoolOrAuto;
+use arti_client::config::{BoolOrAuto, CfgPath};
 use arti_client::{TorClient, TorClientConfig};
 use tor_config::ExplicitOrAuto;
 use tor_keymgr::config::ArtiKeystoreKind;
@@ -41,9 +41,12 @@ async fn run_async(config: Config) -> Result<(), String> {
 
     println!("Bootstrapping Tor... (this may take a moment)");
 
+    let tmp_dir = tempfile::tempdir().unwrap();
     let mut config_builder = TorClientConfig::builder();
     config_builder
         .storage()
+        .cache_dir(CfgPath::new(tmp_dir.path().join("cache").to_string_lossy().into_owned()))
+        .state_dir(CfgPath::new(tmp_dir.path().join("state").to_string_lossy().into_owned()))
         .keystore()
         .enabled(BoolOrAuto::Explicit(true))
         .primary()
