@@ -8,7 +8,7 @@
 
 # Content-Type header for the response
 # Examples: "text/plain", "text/html", "application/json"
-# content_type = "text/html"
+# content_type = "application/octet-stream"
 
 # Server header to send in responses
 # Tip: Using common server names like 'nginx' or 'apache' can help avoid Gone detection
