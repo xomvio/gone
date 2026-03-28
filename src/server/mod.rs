@@ -65,7 +65,6 @@ pub(crate) fn handle_connection<S: Read + Write>(
     }
 
     { let mut lf = log_file.lock().unwrap(); utils::log_request(&visit, "", &mut lf, quiet); }
-    println!("seen!");
     let served = http::serve_content(stream, config, server_name);
     let _ = stream.flush();
 

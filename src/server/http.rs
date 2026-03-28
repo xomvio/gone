@@ -6,6 +6,10 @@ use std::path::PathBuf;
 
 use crate::{config::Config, constants};
 
+fn http_date() -> String {
+    chrono::Utc::now().format("%a, %d %b %Y %H:%M:%S GMT").to_string()
+}
+
 /// Parses the HTTP request line. Returns (method, url, version) or None on malformed input.
 /// Example: "GET /endpoint HTTP/1.1\r\nHost: ..." → ("GET", "/endpoint", "HTTP/1.1")
 pub fn parse_request_line(raw: &str) -> Option<(String, String, String)> {
@@ -22,8 +26,8 @@ pub fn send_404<W: Write>(stream: &mut W, server_name: &str) {
     let body = b"404 Not Found";
     let _ = write!(
         stream,
-        "HTTP/1.1 404 Not Found\r\nServer: {server_name}\r\nConnection: close\r\nContent-Length: {}\r\n\r\n",
-        body.len()
+        "HTTP/1.1 404 Not Found\r\nServer: {server_name}\r\nDate: {}\r\nConnection: close\r\nContent-Length: {}\r\n\r\n",
+        http_date(), body.len()
     );
     let _ = stream.write_all(body);
 }
@@ -55,7 +59,8 @@ pub fn serve_content<W: Write>(stream: &mut W, config: &Config, server_name: &st
             };
             let attachment_string = format!("Content-Disposition: attachment; filename=\"{}\"\r\n", String::from_utf8_lossy(path.file_name().unwrap().as_bytes()));
             let header = format!(
-                "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\n{attachment_string}Server: {server_name}\r\nConnection: close\r\nContent-Length: {size}\r\n\r\n"
+                "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\n{attachment_string}Server: {server_name}\r\nDate: {}\r\nConnection: close\r\nContent-Length: {size}\r\n\r\n",
+                http_date()
             );
             if stream.write_all(header.as_bytes()).is_err() {
                 return false;
@@ -68,8 +73,8 @@ pub fn serve_content<W: Write>(stream: &mut W, config: &Config, server_name: &st
                 let filename = config.content.stdin_filename.as_deref().unwrap_or("download");
                 let attachment = format!("Content-Disposition: attachment; filename=\"{}\"\r\n", filename);
                 let header = format!(
-                    "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\n{attachment}Server: {server_name}\r\nConnection: close\r\nContent-Length: {}\r\n\r\n",
-                    data.len()
+                    "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\n{attachment}Server: {server_name}\r\nDate: {}\r\nConnection: close\r\nContent-Length: {}\r\n\r\n",
+                    http_date(), data.len()
                 );
                 if stream.write_all(header.as_bytes()).is_err() {
                     return false;
@@ -80,8 +85,8 @@ pub fn serve_content<W: Write>(stream: &mut W, config: &Config, server_name: &st
             None => {
                 let text = config.content.text.as_deref().unwrap_or("No content");
                 let header = format!(
-                    "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nServer: {server_name}\r\nConnection: close\r\nContent-Length: {}\r\n\r\n",
-                    text.len()
+                    "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nServer: {server_name}\r\nDate: {}\r\nConnection: close\r\nContent-Length: {}\r\n\r\n",
+                    http_date(), text.len()
                 );
                 if stream.write_all(header.as_bytes()).is_err() {
                     return false;
@@ -94,7 +99,6 @@ pub fn serve_content<W: Write>(stream: &mut W, config: &Config, server_name: &st
 
 fn send_file<W: Write>(mut file: File, stream: &mut W, quiet: bool) -> Result<(), std::io::Error> {
     let file_size = file.metadata().unwrap().size();
-    println!("{}",file_size);
     if file_size < 1_048_576 {
         let served =  std::io::copy(&mut file, stream);
         return match served {
@@ -121,7 +125,7 @@ fn send_file<W: Write>(mut file: File, stream: &mut W, quiet: bool) -> Result<()
 
         sent += n as u64;
         let percent = (sent * 100 / file_size) as u8;
-        if percent != last_percent && quiet {
+        if percent != last_percent && !quiet {
             let mut sent_str = sent.to_string(); sent_str.truncate(sent.to_string().len()-6);
             let mut size_str = file_size.to_string(); size_str.truncate(size_str.len()-6);
             

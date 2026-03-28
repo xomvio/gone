@@ -144,7 +144,7 @@ async fn run_async(config: Config) -> Result<(), String> {
                 // Keep tor_client alive while Tor relays deliver the data
                 // Also sleep for a random seconds to mitigate correlation attacks
                 let sleep_secs = rand::random_range(5..60);
-                println!("sending data...\nAlso waiting for {} (random) seconds before shutdown server to avoid correlation attacks.", sleep_secs);
+                println!("Sending data... waiting a random interval before shutdown to mitigate correlation attacks.");
                 tokio::time::sleep(tokio::time::Duration::from_secs(sleep_secs)).await;
                 return if matches!(result, HandleResult::Served) {
                     Ok(())

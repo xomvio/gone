@@ -1,5 +1,6 @@
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Read, Write};
+use std::os::unix::fs::PermissionsExt;
 use rand::distr::Alphanumeric;
 use rand::Rng;
 use sha2::{Sha256, Digest};
@@ -61,6 +62,7 @@ pub fn open_log_file(config: &Config) -> Result<Option<BufWriter<File>>, String>
         Some(path) => {
             let file = OpenOptions::new().create(true).append(true).open(path)
                 .map_err(|e| format!("Failed to open log file '{}': {}", path, e))?;
+            let _ = file.set_permissions(std::fs::Permissions::from_mode(0o600));
             Ok(Some(BufWriter::new(file)))
         }
         None => Ok(None),
@@ -69,8 +71,8 @@ pub fn open_log_file(config: &Config) -> Result<Option<BufWriter<File>>, String>
 
 pub fn log_request(visit: &Visit, status: &str, log_file: &mut Option<BufWriter<File>>, quiet: bool) {
     let log = format!(
-        "Request\nDateTime: {}\nIP: {}\nEndpoint: {}\nMethod: {}\nVersion: {}\n{}",
-        visit.datetime, visit.ip, visit.endpoint, visit.method, visit.version,
+        "Request\nDateTime: {}\nIP: {}\nMethod: {}\nVersion: {}\n{}",
+        visit.datetime, visit.ip, visit.method, visit.version,
         if status.is_empty() { String::new() } else { format!("{status}\n") }
     );
 
