@@ -21,6 +21,15 @@ pub fn random_endpoint() -> String {
         .collect()
 }
 
+pub fn random_tor_nickname() -> String {
+    let suffix: String = rand::rng()
+        .sample_iter(&Alphanumeric)
+        .take(8)
+        .map(|c| (c as char).to_ascii_lowercase())
+        .collect();
+    format!("gone{}", suffix)
+}
+
 pub fn now_str() -> String {
     chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
 }

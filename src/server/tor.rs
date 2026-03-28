@@ -3,7 +3,10 @@ use std::io::{BufWriter, Write};
 use std::sync::Mutex;
 
 use arti_client::config::onion_service::OnionServiceConfigBuilder;
+use arti_client::config::BoolOrAuto;
 use arti_client::{TorClient, TorClientConfig};
+use tor_config::ExplicitOrAuto;
+use tor_keymgr::config::ArtiKeystoreKind;
 use futures::StreamExt;
 use safelog::DisplayRedacted;
 use tokio::io::AsyncWriteExt;
@@ -38,13 +41,25 @@ async fn run_async(config: Config) -> Result<(), String> {
 
     println!("Bootstrapping Tor... (this may take a moment)");
 
-    let tor_client = TorClient::create_bootstrapped(TorClientConfig::default())
+    let mut config_builder = TorClientConfig::builder();
+    config_builder
+        .storage()
+        .keystore()
+        .enabled(BoolOrAuto::Explicit(true))
+        .primary()
+        .kind(ExplicitOrAuto::Explicit(ArtiKeystoreKind::Ephemeral));
+
+    let tor_config = config_builder
+        .build()
+        .map_err(|e| format!("Failed to build Tor config: {}", e))?;
+
+    let tor_client = TorClient::create_bootstrapped(tor_config)
         .await
         .map_err(|e| format!("Failed to bootstrap Tor: {}", e))?;
 
     let svc_config = OnionServiceConfigBuilder::default()
         .nickname(
-            "gone".parse()
+            utils::random_tor_nickname().parse()
                 .map_err(|e| format!("Failed to parse nickname: {}", e))?,
         )
         .build()
