@@ -76,8 +76,8 @@ pub fn load() -> Result<Config, String> {
     if let Some(whitelist) = args.whitelist {
         config.security.whitelist = Some(whitelist);
     }
-    if args.insecure_http {
-        config.server.insecure_http = Some(true);
+    if args.no_tls {
+        config.server.no_tls = Some(true);
     }
     if args.tor {
         config.server.tor = Some(true);

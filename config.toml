@@ -24,8 +24,8 @@ server_name = "nginx"
 
 # HTTPS is enabled by default
 # If cert_path and key_path is not set, Gone will generate a self-signed SSL
-# If you have another security layer (eg. Tor or SSL when port-forwarding), you may set this true to disable SSL
-insecure_http = false
+# If you have another security layer (eg. Tor or SSL when port-forwarding), you may set this true to disable TLS
+no_tls = false
 
 # Certificate path for SSL
 # You can't use '../' for security reasons

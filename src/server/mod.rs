@@ -79,9 +79,9 @@ pub fn run(config: Config) -> Result<(), String> {
     let endpoint = config.server.endpoint.clone().unwrap_or_else(utils::random_endpoint);
     let expected_url = format!("/{}", endpoint);
     let server_name = config.server.server_name.as_deref().unwrap_or(constants::DEFAULT_SERVER_NAME).to_string();
-    let insecure_http = config.server.insecure_http.unwrap_or(false);
+    let no_tls = config.server.no_tls.unwrap_or(false);
 
-    let tls_config = if !insecure_http { Some(tls::make_tls_config(&config)?) } else { None };
+    let tls_config = if !no_tls { Some(tls::make_tls_config(&config)?) } else { None };
     let log_file = Arc::new(Mutex::new(utils::open_log_file(&config)?));
     let config = Arc::new(config);
 
@@ -102,7 +102,7 @@ pub fn run(config: Config) -> Result<(), String> {
         }
     };
 
-    let scheme = if insecure_http { "http" } else { "https" };
+    let scheme = if no_tls { "http" } else { "https" };
 
     println!("Server started");
     println!("{scheme}://{local_addr}{expected_url}");

@@ -34,8 +34,8 @@ pub fn validate(config: &Config) -> Result<(), String> {
     if has_cert != has_key {
         return Err("--cert-path and --key-path must be provided together.".to_string());
     }
-    if (has_cert || has_key) && config.server.insecure_http.unwrap_or(false) {
-        return Err("--cert-path/--key-path and --insecure-http cannot be used together.".to_string());
+    if (has_cert || has_key) && config.server.no_tls.unwrap_or(false) {
+        return Err("--cert-path/--key-path and --no-tls cannot be used together.".to_string());
     }
     if (has_cert || has_key) && config.server.tor.unwrap_or(false) {
         return Err("--cert-path/--key-path are not used in Tor mode (Tor handles encryption).".to_string());
@@ -149,12 +149,12 @@ mod tests {
     }
 
     #[test]
-    fn cert_with_insecure_http_fails() {
+    fn cert_with_no_tls_fails() {
         let mut config = config_with_text("hello");
         config.server.cert_path = Some("cert.pem".into());
         config.server.key_path = Some("key.pem".into());
-        config.server.insecure_http = Some(true);
-        assert!(validate(&config).unwrap_err().contains("--insecure-http"));
+        config.server.no_tls = Some(true);
+        assert!(validate(&config).unwrap_err().contains("--no-tls"));
     }
 
     #[test]

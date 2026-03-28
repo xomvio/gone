@@ -7,7 +7,7 @@ pub struct Args {
     #[arg(short, long)]
     pub port: Option<String>,
 
-    /// Content-Type header for the response (e.g., "text/plain", "text/html")
+    /// Content-Type header for the response (e.g., "text/plain", "video/mp4")
     #[arg(long, value_name = "TYPE")]
     pub content_type: Option<String>,
 
@@ -31,7 +31,7 @@ pub struct Args {
     #[arg(long, value_name = "FILE")]
     pub output: Option<String>,
 
-    /// Allowed HTTP methods, comma-separated (e.g., GET,POST)
+    /// Allowed HTTP methods, comma-separated (e.g., GET,POST) (default: Only GET)
     #[arg(long, value_name = "METHODS", value_delimiter = ',')]
     pub allowed_methods: Option<Vec<String>>,
 
@@ -45,10 +45,9 @@ pub struct Args {
 
     /// Disable TLS and use plain HTTP (HTTPS is the default).
     #[arg(long)]
-    pub insecure_http: bool,
+    pub no_tls: bool,
 
     /// Route through Tor (starts an onion service via arti).
-    /// Requires building with `--features tor`.
     #[arg(long)]
     pub tor: bool,
 
@@ -64,7 +63,7 @@ pub struct Args {
     #[arg(long, value_name = "FILE")]
     pub key_path: Option<String>,
 
-    /// Filename for Content-Disposition header when reading from stdin (requires --from-file -)
+    /// This is what receiver will see as downloaded file. Use when reading from stdin (requires --from-file -)
     #[arg(long, value_name = "NAME")]
     pub stdin_filename: Option<String>,
 

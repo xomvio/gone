@@ -9,7 +9,7 @@ impl Default for ServerConfig {
             server_name: Some(constants::DEFAULT_SERVER_NAME.to_string()),
             endpoint: None,
             output: None,
-            insecure_http: None,
+            no_tls: None,
             tor: None,
             port_forwarded: None,
             cert_path: None,

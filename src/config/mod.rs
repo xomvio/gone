@@ -30,7 +30,7 @@ pub struct ServerConfig {
     pub server_name: Option<String>,
     pub endpoint: Option<String>,
     pub output: Option<String>,
-    pub insecure_http: Option<bool>,
+    pub no_tls: Option<bool>,
     pub tor: Option<bool>,
     pub port_forwarded: Option<bool>,
     pub cert_path: Option<String>,
